@@ -299,7 +299,7 @@ function vReservas() {
           <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}</div>
           ${contaOk(r.conta) ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
-          <div class="cron ${resta <= 0 ? 'expirado' : ''}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
+          <div class="cron ${resta <= 0 ? 'expirado' : ''}" data-lid="${esc(r.listId)}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
           ${r.suspeitaGolpe ? `<div class="aviso erro">⛔ Atenção: anúncio ${esc(r.motivoSuspeita || 'suspeito')} — confira antes de pagar!</div>` : ''}
           ${r.confirmadaWhats ? '<div class="sub ok">✅ Mantida pelo WhatsApp</div>' : ''}
           <div class="acoes">
@@ -323,9 +323,19 @@ function vReservas() {
     }
   };
   desenhar();
+  // Um timer só: esta tela é redesenhada a cada atualização dos dados (15 s)
+  // e antes cada redesenho criava mais um timer sem parar o anterior — os
+  // antigos, com o horário de expiração velho, escreviam "Expirado" por cima
+  // do contador novo quando o Pix era renovado. O timer também lê sempre a
+  // reserva atual (pelo listId), não a lista de quando foi criado.
+  clearInterval(timerTela);
+  timerTela = null;
   if (reservas.length) timerTela = setInterval(() => {
-    for (const [i, el] of document.querySelectorAll('.reserva .cron').entries()) {
-      const r = reservas[i], resta = (r.expiraEm || 0) - Date.now();
+    const atuais = Sync.dados()?.reservas || [];
+    for (const el of document.querySelectorAll('.reserva .cron[data-lid]')) {
+      const r = atuais.find((x) => String(x.listId) === el.dataset.lid);
+      if (!r) continue;
+      const resta = (r.expiraEm || 0) - Date.now();
       el.textContent = `⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}`;
       el.classList.toggle('expirado', resta <= 0);
     }
