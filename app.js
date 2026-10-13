@@ -23,6 +23,12 @@ function guardarOrdem(listId, id, tipo) {
   localStorage.setItem(ORDENS_KEY, JSON.stringify(o));
 }
 
+// Pediu "Cancelar reserva" há pouco e o PC ainda não confirmou?
+function cancelando(listId) {
+  const o = ordens()[listId];
+  return !!(o && o.tipo === 'cancelar_reserva' && Date.now() - o.ts < 2 * 60 * 1000);
+}
+
 function toast(msg) {
   const t = $('#toast');
   t.textContent = msg; t.classList.add('on');
@@ -174,6 +180,7 @@ const STATUS = {
   erro: ['❌', 'Não foi possível finalizar.'],
   cancelado: ['⛔', 'Compra cancelada.'],
   parado: ['⏹', 'Forçar compra parado.'],
+  reserva_cancelada: ['✕', 'Reserva cancelada — a aba de pagamento foi fechada no PC.'],
 };
 
 function vAnuncio(id) {
@@ -215,6 +222,7 @@ async function mandarOrdem(a, tipo) {
     comprar: `Comprar pelo PC?\n\n${a.titulo}\n${fmtPreco(a)}\n\nO PC finaliza a compra e gera o PIX.`,
     forcar: `Forçar a compra pelo PC?\n\nO PC fica tentando até o anúncio liberar.`,
     parar_forcar: 'Parar o forçar compra no PC?',
+    cancelar_reserva: `Cancelar a reserva?\n\n${a.titulo}\n\nA aba de pagamento é fechada no PC e o Pix expira sem pagamento.`,
   };
   if (!confirm(confirmacoes[tipo])) return;
   guardarOrdem(a.id, 'local-' + Date.now(), tipo); // mostra "Enviando…" já
@@ -255,9 +263,11 @@ function desenharStatusOrdem(a) {
   if (reserva) {
     const resta = (reserva.expiraEm || 0) - Date.now();
     html += `<div class="reserva-box">
+      ${reserva.conta ? `<div class="conta">👤 Reservado na conta <b>${esc(reserva.conta)}</b></div>` : ''}
       ${reserva.total ? `<div>Total: <b>${esc(reserva.total)}</b></div>` : ''}
       <div>${resta > 0 ? `PIX expira em <b>${cronometro(resta)}</b> (às ${hora(reserva.expiraEm)})` : 'PIX expirado'}</div>
       ${reserva.pix ? '<button type="button" class="btn prim grande" id="copiarPix">📋 Copiar código Pix</button>' : '<div class="sub">O código Pix aparece aqui assim que o PC ler a página de pagamento.</div>'}
+      ${cancelando(a.id) ? '<div class="sub">✕ Cancelando no PC…</div>' : '<button type="button" class="btn perigo grande" id="cancelarReserva">✕ Cancelar reserva</button>'}
     </div>`;
   }
   if (status === 'reservado') html += '<button type="button" class="btn grande" id="forcarPc">⚡ Forçar compra pelo PC</button>';
@@ -266,6 +276,7 @@ function desenharStatusOrdem(a) {
   box.dataset.html = html;
   box.innerHTML = html;
   $('#copiarPix')?.addEventListener('click', () => copiar(reserva.pix, 'Código Pix copiado — cole no app do banco'));
+  $('#cancelarReserva')?.addEventListener('click', () => mandarOrdem(a, 'cancelar_reserva'));
   $('#forcarPc')?.addEventListener('click', () => mandarOrdem(a, 'forcar'));
   $('#pararPc')?.addEventListener('click', () => mandarOrdem(a, 'parar_forcar'));
 }
@@ -283,6 +294,7 @@ function vReservas() {
         const resta = (r.expiraEm || 0) - Date.now();
         return `<div class="card pad reserva">
           <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}</div>
+          ${r.conta ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
           <div class="cron ${resta <= 0 ? 'expirado' : ''}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
           ${r.suspeitaGolpe ? `<div class="aviso erro">⛔ Atenção: anúncio ${esc(r.motivoSuspeita || 'suspeito')} — confira antes de pagar!</div>` : ''}
@@ -290,6 +302,7 @@ function vReservas() {
           <div class="acoes">
             ${r.pix ? `<button type="button" class="btn prim" data-pix="${i}">📋 Copiar Pix</button>` : '<span class="sub">Pix ainda não lido</span>'}
             ${r.link ? `<a class="btn" href="${esc(r.link)}" target="_blank" rel="noopener">Ver anúncio</a>` : ''}
+            ${cancelando(r.listId) ? '<span class="sub">✕ Cancelando no PC…</span>' : `<button type="button" class="btn perigo" data-cancelar="${i}">✕ Cancelar</button>`}
           </div>
         </div>`;
       }).join('')}
@@ -297,6 +310,13 @@ function vReservas() {
         <div class="card pad"><b>${esc(f.titulo || f.listId)}</b><div class="sub">${esc(f.preco || '')} · tentativa ${f.tentativa || 0}</div></div>`).join('')}` : ''}`;
     for (const b of document.querySelectorAll('[data-pix]')) {
       b.addEventListener('click', () => copiar(reservas[+b.dataset.pix].pix, 'Código Pix copiado — cole no app do banco'));
+    }
+    for (const b of document.querySelectorAll('[data-cancelar]')) {
+      b.addEventListener('click', async () => {
+        const r = reservas[+b.dataset.cancelar];
+        await mandarOrdem({ id: r.listId, titulo: r.titulo || 'Anúncio', precoRaw: r.preco, link: r.link }, 'cancelar_reserva');
+        desenhar();
+      });
     }
   };
   desenhar();
