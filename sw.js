@@ -1,8 +1,8 @@
 // App instalável: guarda os arquivos do site. Os dados ficam no localStorage
 // e a API do GitHub nunca passa pelo cache.
-const CACHE = 'olxcel-v3';
-const ARQUIVOS = ['./', 'index.html', 'styles.css?v=3', 'config.js?v=3', 'cripto.js?v=3',
-  'sync.js?v=3', 'app.js?v=3', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const CACHE = 'olxcel-v4';
+const ARQUIVOS = ['./', 'index.html', 'styles.css?v=4', 'config.js?v=4', 'cripto.js?v=4',
+  'sync.js?v=4', 'app.js?v=4', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
@@ -12,11 +12,13 @@ self.addEventListener('activate', (e) => {
     .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
-// Rede primeiro (pega versões novas), cache se estiver sem internet
+// Rede primeiro (pega versões novas), cache se estiver sem internet.
+// cache: 'no-cache' — o GitHub Pages manda max-age=600 no index.html; sem
+// isso o app reaproveitava por até 10 min o index antigo (com o CSS/JS antigo).
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  e.respondWith(fetch(e.request)
+  e.respondWith(fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' })
     .then((r) => { const copia = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: false }).then((r) => r || caches.match('index.html'))));
 });

@@ -23,6 +23,9 @@ function guardarOrdem(listId, id, tipo) {
   localStorage.setItem(ORDENS_KEY, JSON.stringify(o));
 }
 
+// Conta da reserva: "—" é "não identificada" (reservas antigas) — não mostra
+const contaOk = (c) => Boolean(c && c !== '—' && c !== '-');
+
 // Pediu "Cancelar reserva" há pouco e o PC ainda não confirmou?
 function cancelando(listId) {
   const o = ordens()[listId];
@@ -263,7 +266,7 @@ function desenharStatusOrdem(a) {
   if (reserva) {
     const resta = (reserva.expiraEm || 0) - Date.now();
     html += `<div class="reserva-box">
-      ${reserva.conta ? `<div class="conta">👤 Reservado na conta <b>${esc(reserva.conta)}</b></div>` : ''}
+      ${contaOk(reserva.conta) ? `<div class="conta">👤 Reservado na conta <b>${esc(reserva.conta)}</b></div>` : ''}
       ${reserva.total ? `<div>Total: <b>${esc(reserva.total)}</b></div>` : ''}
       <div>${resta > 0 ? `PIX expira em <b>${cronometro(resta)}</b> (às ${hora(reserva.expiraEm)})` : 'PIX expirado'}</div>
       ${reserva.pix ? '<button type="button" class="btn prim grande" id="copiarPix">📋 Copiar código Pix</button>' : '<div class="sub">O código Pix aparece aqui assim que o PC ler a página de pagamento.</div>'}
@@ -294,7 +297,7 @@ function vReservas() {
         const resta = (r.expiraEm || 0) - Date.now();
         return `<div class="card pad reserva">
           <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}</div>
-          ${r.conta ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
+          ${contaOk(r.conta) ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
           <div class="cron ${resta <= 0 ? 'expirado' : ''}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
           ${r.suspeitaGolpe ? `<div class="aviso erro">⛔ Atenção: anúncio ${esc(r.motivoSuspeita || 'suspeito')} — confira antes de pagar!</div>` : ''}
@@ -516,7 +519,25 @@ Sync.ouvir((estado, d) => {
   else if (rota === 'anuncio') { const a = (d?.anuncios || []).find((x) => String(x.id) === decodeURIComponent(location.hash.split('/')[2] || '')); if (a) desenharStatusOrdem(a); }
 });
 
+// ─── Atualização do app ─────────────────────────────────────────────────────
+// O app instalado (principalmente no iPhone) pode abrir com a versão antiga
+// guardada. Confere a versão publicada e, se houver uma nova, recarrega com um
+// endereço novo (?v=N), que não pega nenhum cache.
+async function checarVersao() {
+  try {
+    const t = await (await fetch(`config.js?ts=${Date.now()}`, { cache: 'no-store' })).text();
+    const v = Number(/OC_VERSAO = (\d+)/.exec(t)?.[1] || 0);
+    if (v > OC_VERSAO && sessionStorage.getItem('olxcel:atualizou') !== String(v)) {
+      sessionStorage.setItem('olxcel:atualizou', String(v));
+      await (await navigator.serviceWorker?.getRegistration())?.update().catch(() => {});
+      location.replace(`${location.pathname}?v=${v}${location.hash}`);
+    }
+  } catch { /* sem internet: segue com a versão que tem */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checarVersao(); });
+
 // ─── Início ─────────────────────────────────────────────────────────────────
+checarVersao();
 atualizarPill();
 render();
 if (Sync.configurado()) Sync.iniciar();
