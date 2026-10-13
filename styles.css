@@ -131,6 +131,10 @@ b { font-weight: 700; }
 .status.st-erro, .status.st-vendido, .status.st-cancelado { border-color: rgba(239, 68, 68, .5); color: #fca5a5; }
 .reserva-box { margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px dashed var(--accent); }
 .reserva-box .conta, .reserva .conta { color: var(--accent2); font-weight: 700; font-size: 13px; margin: 2px 0 4px; }
+/* Card da aba Reservas: Copiar Pix · Ver anúncio · Cancelar numa linha só */
+.reserva .acoes { flex-wrap: nowrap; gap: 6px; }
+.reserva .acoes > * { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reserva .acoes > .sub { display: flex; align-items: center; justify-content: center; margin: 0; font-size: 12px; text-align: center; white-space: normal; }
 
 /* ── Reservas e pedidos ── */
 .cron { font-size: 26px; font-weight: 800; color: var(--accent); margin-top: 6px; font-variant-numeric: tabular-nums; }
