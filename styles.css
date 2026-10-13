@@ -131,6 +131,12 @@ b { font-weight: 700; }
 .status.st-erro, .status.st-vendido, .status.st-cancelado { border-color: rgba(239, 68, 68, .5); color: #fca5a5; }
 .reserva-box { margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px dashed var(--accent); }
 .reserva-box .conta, .reserva .conta { color: var(--accent2); font-weight: 700; font-size: 13px; margin: 2px 0 4px; }
+/* Compras automáticas em andamento (aba Reservas) */
+.auto-compra { display: block; text-decoration: none; color: inherit; }
+.auto-compra .st { margin-top: 8px; font-weight: 700; font-size: 14px; }
+.auto-compra .st.andando { color: var(--accent); }
+.auto-compra .st.parou { color: #fca5a5; }
+.det-titulo .selo { vertical-align: middle; font-size: 11px; }
 /* Card da aba Reservas: Copiar Pix · Ver anúncio · Cancelar numa linha só */
 .reserva .acoes { flex-wrap: nowrap; gap: 6px; }
 .reserva .acoes > * { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

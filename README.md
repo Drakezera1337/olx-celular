@@ -13,7 +13,11 @@ Site estático (HTML + CSS + JS, sem build), feito para o **GitHub Pages**. Inst
 - **💻 Comprar pelo PC**: manda a extensão fazer a Compra Rápida no PC (Expressa + Pix) e mostra o
   resultado aqui — compra finalizada (com total, cronômetro e botão **Copiar código Pix**), reservado
   (com opção de **Forçar compra pelo PC** e de parar), vendido ou erro.
-- **Reservas**: compras aguardando pagamento, com cronômetro e código Pix.
+- **Reservas**: compras aguardando pagamento, com cronômetro e código Pix, e as **compras automáticas**
+  do PC (comprando, reservada, cancelada ou não deu).
+- **🔔 Notificações**: aviso no celular quando o PC inicia uma compra automática (console, título e preço);
+  tocar abre a aba Reservas. Ative em ⚙️ → Notificações. A própria extensão envia (Web Push com VAPID,
+  sem servidor). No iPhone: iOS 16.4+ e o app instalado na tela de início.
 - **Pedidos**: os pedidos do “Verificar compras” / “Verificação Completa”, com a conta de cada um.
 
 ## Como funciona

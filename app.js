@@ -290,13 +290,31 @@ function vReservas() {
   const d = Sync.dados();
   const reservas = (d?.reservas || []).slice().sort((x, y) => (y.ts || 0) - (x.ts || 0));
   const forcando = d?.forcando || [];
+  // Compras automáticas do PC: as que ainda não viraram reserva (comprando,
+  // falharam ou foram canceladas) aparecem aqui; as que viraram reserva
+  // aparecem como reserva, com o selo "🎯 Automática".
+  const auto = d?.autoCompras || [];
+  const autoIds = new Set(auto.map((x) => String(x.listId)));
+  const autoAndamento = auto
+    .filter((x) => !reservas.some((r) => String(r.listId) === String(x.listId)) && /^(comprando|falhou|cancelada)/.test(x.status || ''))
+    .sort((x, y) => (y.ts || 0) - (x.ts || 0));
+  const statusAuto = (s) => /^comprando/.test(s) ? '🔄 Comprando no PC…'
+    : /^falhou/.test(s) ? '❌ ' + s.replace(/^falhou:\s*/, 'Não deu: ')
+    : '⛔ ' + s.replace(/^cancelada:\s*/, 'Cancelada: ');
   const desenhar = () => {
     tela.innerHTML = `
-      ${!reservas.length && !forcando.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
+      ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas</div>${autoAndamento.map((x) => `
+        <a class="card pad auto-compra" href="#/anuncio/${encodeURIComponent(x.listId)}">
+          <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}</div>
+          <div class="sub">${esc([String(x.console || '').toUpperCase(), x.preco].filter(Boolean).join(' · '))} · ${relativo(x.ts || 0)}</div>
+          <div class="st ${/^comprando/.test(x.status) ? 'andando' : 'parou'}">${esc(statusAuto(x.status || ''))}</div>
+        </a>`).join('')}` : ''}
+      ${!reservas.length && !forcando.length && !autoAndamento.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
+      ${reservas.length && autoAndamento.length ? '<div class="secao">⏱ Aguardando pagamento</div>' : ''}
       ${reservas.map((r, i) => {
         const resta = (r.expiraEm || 0) - Date.now();
         return `<div class="card pad reserva">
-          <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}</div>
+          <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}${autoIds.has(String(r.listId)) ? ' <span class="selo verde">🎯 Automática</span>' : ''}</div>
           ${contaOk(r.conta) ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
           <div class="cron ${resta <= 0 ? 'expirado' : ''}" data-lid="${esc(r.listId)}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
@@ -391,6 +409,71 @@ function receberLinkConfig(texto) {
   render();
 }
 
+// ─── Notificações push (o PC avisa quando inicia uma compra automática) ─────
+const PUSH_ORDEM_KEY = 'olxcel:pushOrdem';
+const ehIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const instalado = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+function deB64u(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+}
+
+function cartaoNotificacoes(d) {
+  const suporta = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const perm = suporta ? Notification.permission : 'indisponível';
+  const resp = d?.respostas?.[localStorage.getItem(PUSH_ORDEM_KEY)];
+  let estado;
+  if (!suporta) estado = ehIOS && !instalado()
+    ? 'No iPhone, as notificações só funcionam com o app <b>instalado na tela de início</b> (Safari → Compartilhar → Adicionar à Tela de Início) e aberto por lá.'
+    : 'Este navegador não suporta notificações.';
+  else if (perm === 'denied') estado = 'Notificações bloqueadas — libere nos ajustes do celular para este app.';
+  else if (!d?.push?.chave) estado = 'Atualize a extensão no PC (recarregue em chrome://extensions) para ativar.';
+  else estado = perm === 'granted' && d.push.inscritos ? `✅ Ativadas · ${d.push.inscritos} aparelho(s) inscrito(s) no PC` : 'Desligadas.';
+  return `<div class="card pad" style="margin-top:12px">
+    <b>🔔 Notificações</b>
+    <p class="sub">Aviso no celular quando o PC <b>inicia uma compra automática</b> (console e preço). Tocar abre as Reservas.</p>
+    <div class="sub">${estado}</div>
+    ${resp ? `<div class="sub ${resp.status === 'push_ok' ? 'ok' : ''}">${resp.status === 'push_ok' ? '✅' : '⚠️'} ${esc(resp.msg)}</div>` : ''}
+    ${suporta && perm !== 'denied' && d?.push?.chave ? `<div class="acoes">
+      <button type="button" class="btn prim" id="ativarPush">🔔 ${perm === 'granted' && d.push.inscritos ? 'Reativar' : 'Ativar notificações'}</button>
+      ${d.push.inscritos ? '<button type="button" class="btn" id="testarPush">Enviar teste</button>' : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+async function ordemPush(ordem) {
+  try {
+    const id = await Sync.enviarOrdem(ordem);
+    localStorage.setItem(PUSH_ORDEM_KEY, id);
+    toast('Enviado ao PC — a resposta chega em alguns segundos');
+  } catch (e) { toast('Falhou: ' + e.message); }
+}
+
+async function ativarNotificacoes() {
+  const chave = Sync.dados()?.push?.chave;
+  if (!chave) return toast('Atualize a extensão no PC e tente de novo');
+  try {
+    if ((await Notification.requestPermission()) !== 'granted') return toast('Permissão de notificação negada');
+    const reg = await navigator.serviceWorker.ready;
+    let insc = await reg.pushManager.getSubscription();
+    // Inscrição feita com outra chave (PC reconfigurado): refaz
+    const atual = insc?.options?.applicationServerKey;
+    if (insc && atual && btoa(String.fromCharCode(...new Uint8Array(atual))) !== btoa(String.fromCharCode(...deB64u(chave)))) {
+      await insc.unsubscribe(); insc = null;
+    }
+    insc ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: deB64u(chave) });
+    const j = insc.toJSON();
+    await ordemPush({ tipo: 'push_inscrever', insc: { endpoint: j.endpoint, keys: j.keys },
+      aparelho: (/iPhone|iPad|Android/.exec(navigator.userAgent) || ['navegador'])[0] });
+  } catch (e) {
+    toast('Não foi possível ativar: ' + e.message);
+  }
+}
+
+// Toque numa notificação com o app já aberto: o service worker manda ir pra tela
+navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.ir) location.hash = e.data.ir; });
+
 function vConfig() {
   titulo('Configuração', Sync.configurado());
   const e = Sync.estado, d = Sync.dados();
@@ -402,6 +485,7 @@ function vConfig() {
         ${e.status === 'erro' ? `<div class="aviso erro">${esc(e.erro)}</div>` : ''}
         <div class="acoes"><button type="button" class="btn prim" id="atualizar">Atualizar agora</button></div>
       </div>
+      ${cartaoNotificacoes(d)}
       <div class="card pad" style="margin-top:12px">
         <b>Como funciona</b>
         <p class="sub">O PC publica os anúncios captados, as reservas e os pedidos num Gist secreto do GitHub, criptografados com a sua senha.
@@ -410,6 +494,8 @@ function vConfig() {
       </div>
       <div class="sub centro" style="margin-top:14px">OLX no celular · versão ${OC_VERSAO}</div>`;
     $('#atualizar').addEventListener('click', () => Sync.agora());
+    $('#ativarPush')?.addEventListener('click', ativarNotificacoes);
+    $('#testarPush')?.addEventListener('click', () => ordemPush({ tipo: 'push_teste' }));
     $('#desconectar').addEventListener('click', () => {
       if (!confirm('Desconectar este aparelho?\n\nNada é apagado no PC. Para voltar, leia o QR de novo.')) return;
       Sync.desconectar(); ir('#/anuncios');

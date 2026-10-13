@@ -1,8 +1,8 @@
 // App instalável: guarda os arquivos do site. Os dados ficam no localStorage
 // e a API do GitHub nunca passa pelo cache.
-const CACHE = 'olxcel-v5';
-const ARQUIVOS = ['./', 'index.html', 'styles.css?v=5', 'config.js?v=5', 'cripto.js?v=5',
-  'sync.js?v=5', 'app.js?v=5', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const CACHE = 'olxcel-v6';
+const ARQUIVOS = ['./', 'index.html', 'styles.css?v=6', 'config.js?v=6', 'cripto.js?v=6',
+  'sync.js?v=6', 'app.js?v=6', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
@@ -21,4 +21,29 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' })
     .then((r) => { const copia = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: false }).then((r) => r || caches.match('index.html'))));
+});
+
+// Notificação push enviada pela extensão no PC (ex.: "Compra automática iniciada")
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data?.text() || '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'OLX', {
+    body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png',
+    tag: d.tag || undefined, data: { url: d.url || '#/reservas' },
+  }));
+});
+
+// Toque na notificação: abre (ou traz pra frente) o app na tela indicada (aba Reservas)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const destino = e.notification.data?.url || '#/reservas';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
+    for (const w of janelas) {
+      if (new URL(w.url).origin === location.origin) {
+        w.postMessage({ ir: destino });
+        return w.focus();
+      }
+    }
+    return self.clients.openWindow(new URL(destino, self.registration.scope).href);
+  }));
 });
