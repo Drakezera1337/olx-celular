@@ -131,6 +131,13 @@ b { font-weight: 700; }
 .status.st-erro, .status.st-vendido, .status.st-cancelado { border-color: rgba(239, 68, 68, .5); color: #fca5a5; }
 .reserva-box { margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px dashed var(--accent); }
 .reserva-box .conta, .reserva .conta { color: var(--accent2); font-weight: 700; font-size: 13px; margin: 2px 0 4px; }
+/* Liga/desliga a compra automática do PC */
+.auto-toggle { display: flex; align-items: center; gap: 12px; }
+.auto-toggle .info { flex: 1; min-width: 0; }
+.auto-toggle.on { border-color: rgba(0, 229, 160, .45); }
+.auto-toggle.on b { color: var(--accent); }
+.auto-toggle.off b { color: var(--muted); }
+.auto-toggle .btn { flex: none; }
 /* Compras automáticas em andamento (aba Reservas) */
 .auto-compra { display: block; text-decoration: none; color: inherit; }
 .auto-compra .st { margin-top: 8px; font-weight: 700; font-size: 14px; }

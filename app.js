@@ -26,6 +26,41 @@ function guardarOrdem(listId, id, tipo) {
 // Conta da reserva: "—" é "não identificada" (reservas antigas) — não mostra
 const contaOk = (c) => Boolean(c && c !== '—' && c !== '-');
 
+// ─── Liga/desliga a compra automática do PC (ordem "auto_compra") ───────────
+const AUTO_KEY = 'olxcel:autoOrdem'; // { id, ligar, ts } — última ordem enviada
+function blocoAutoCompra(d) {
+  if (d?.pc?.autoCompra === undefined) return ''; // extensão do PC ainda sem essa função
+  const atual = d.pc.autoCompra;
+  let pend = null;
+  try { pend = JSON.parse(localStorage.getItem(AUTO_KEY)); } catch { pend = null; }
+  const esperando = pend && Date.now() - pend.ts < 2 * 60 * 1000 && atual !== pend.ligar && !d.respostas?.[pend.id];
+  const txt = esperando ? (pend.ligar ? '⏳ Ligando no PC…' : '⏳ Desligando no PC…')
+    : atual ? 'Ligada — o PC compra PS5 e Xbox Series sozinho' : 'Desligada — o PC só avisa, não compra';
+  return `<div class="card pad auto-toggle ${atual ? 'on' : 'off'}">
+    <div class="info"><b>🎯 Compra automática ${atual ? 'LIGADA' : 'DESLIGADA'}</b><div class="sub">${txt}</div></div>
+    <button type="button" class="btn ${atual ? 'perigo' : 'prim'}" data-auto="${atual ? '0' : '1'}"${esperando ? ' disabled' : ''}>${atual ? 'Desligar' : 'Ligar'}</button>
+  </div>`;
+}
+function ligarBotoesAutoCompra(redesenhar) {
+  for (const b of document.querySelectorAll('[data-auto]')) {
+    b.addEventListener('click', async () => {
+      const ligar = b.dataset.auto === '1';
+      if (!confirm(ligar ? 'Ligar a compra automática no PC?\n\nO PC volta a comprar PS5 e Xbox Series sozinho.' : 'Desligar a compra automática no PC?\n\nO PC continua avisando os anúncios, mas não compra mais sozinho.')) return;
+      localStorage.setItem(AUTO_KEY, JSON.stringify({ id: 'local', ligar, ts: Date.now() }));
+      redesenhar();
+      try {
+        const id = await Sync.enviarOrdem({ tipo: 'auto_compra', ligar });
+        localStorage.setItem(AUTO_KEY, JSON.stringify({ id, ligar, ts: Date.now() }));
+        toast(ligar ? 'Pedido enviado: ligar' : 'Pedido enviado: desligar');
+      } catch (e) {
+        localStorage.removeItem(AUTO_KEY);
+        toast('Falhou: ' + e.message);
+      }
+      redesenhar();
+    });
+  }
+}
+
 // Pediu "Cancelar reserva" há pouco e o PC ainda não confirmou?
 function cancelando(listId) {
   const o = ordens()[listId];
@@ -303,6 +338,7 @@ function vReservas() {
     : '⛔ ' + s.replace(/^cancelada:\s*/, 'Cancelada: ');
   const desenhar = () => {
     tela.innerHTML = `
+      ${blocoAutoCompra(d)}
       ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas</div>${autoAndamento.map((x) => `
         <a class="card pad auto-compra" href="#/anuncio/${encodeURIComponent(x.listId)}">
           <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}</div>
@@ -329,6 +365,7 @@ function vReservas() {
       }).join('')}
       ${forcando.length ? `<div class="secao">⚡ Forçando compra no PC</div>${forcando.map((f) => `
         <div class="card pad"><b>${esc(f.titulo || f.listId)}</b><div class="sub">${esc(f.preco || '')} · tentativa ${f.tentativa || 0}</div></div>`).join('')}` : ''}`;
+    ligarBotoesAutoCompra(desenhar);
     for (const b of document.querySelectorAll('[data-pix]')) {
       b.addEventListener('click', () => copiar(reservas[+b.dataset.pix].pix, 'Código Pix copiado — cole no app do banco'));
     }
@@ -485,6 +522,7 @@ function vConfig() {
         ${e.status === 'erro' ? `<div class="aviso erro">${esc(e.erro)}</div>` : ''}
         <div class="acoes"><button type="button" class="btn prim" id="atualizar">Atualizar agora</button></div>
       </div>
+      ${blocoAutoCompra(d)}
       ${cartaoNotificacoes(d)}
       <div class="card pad" style="margin-top:12px">
         <b>Como funciona</b>
@@ -494,6 +532,7 @@ function vConfig() {
       </div>
       <div class="sub centro" style="margin-top:14px">OLX no celular · versão ${OC_VERSAO}</div>`;
     $('#atualizar').addEventListener('click', () => Sync.agora());
+    ligarBotoesAutoCompra(vConfig);
     $('#ativarPush')?.addEventListener('click', ativarNotificacoes);
     $('#testarPush')?.addEventListener('click', () => ordemPush({ tipo: 'push_teste' }));
     $('#desconectar').addEventListener('click', () => {
