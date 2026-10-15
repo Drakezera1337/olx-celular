@@ -559,13 +559,6 @@ function vNotificacoes() {
 
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
 const GRUPOS = [['transito', '🚚 Em trânsito'], ['preparacao', '📦 Em preparação'], ['cancelamento', '❌ Em cancelamento'], ['entregue', '✅ Entregues']];
-// O link do pedido (pedido.olx.com.br/<id>) abre no navegador: esse endereço
-// não está entre os que a OLX registrou para abrir no app. Já
-// meus-pedidos.olx.com.br/minhas-compras/* está — o iPhone abre direto no app.
-function linkPedidoApp(link) {
-  const m = /^https:\/\/pedido\.olx\.com\.br\/(\d+)/.exec(link || '');
-  return m ? `https://meus-pedidos.olx.com.br/minhas-compras/${m[1]}` : '';
-}
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
@@ -587,8 +580,7 @@ function vPedidos() {
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
             ${p.codigoRastreio ? `<button type="button" class="btn mini" data-cod="${esc(p.codigoRastreio)}">📋 ${esc(p.codigoRastreio)}</button>` : ''}
-            ${linkPedidoApp(p.link) ? `<a class="btn mini prim" href="${esc(linkPedidoApp(p.link))}" target="_blank" rel="noopener">📱 Ver pedido no app</a>` : ''}
-            ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">${linkPedidoApp(p.link) ? 'No navegador' : 'Ver pedido'}</a>` : ''}
+            ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">Ver pedido</a>` : ''}
           </div>
         </div>`).join('')}`;
     }).join('')}`;
