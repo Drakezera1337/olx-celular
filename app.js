@@ -353,7 +353,12 @@ function arrastarParaFechar(g, trilho) {
     if (modo === 'nada' || e.touches.length !== 1) return;
     const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
     if (!modo) {
-      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) {
+        // ainda indefinido, mas já descendo: segura o gesto pro app desde o
+        // 1º movimento (no iPhone, depois que a rolagem começa não dá mais)
+        if (my > 0 && my >= Math.abs(mx)) e.preventDefault();
+        return;
+      }
       modo = my > 0 && Math.abs(my) > Math.abs(mx) ? 'fechar' : 'nada';
       if (modo !== 'fechar') return;
       trilho.style.transition = g.style.transition = 'none';

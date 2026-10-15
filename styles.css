@@ -140,6 +140,13 @@ b { font-weight: 700; }
 }
 .gal-x { background: rgba(255, 255, 255, .14); border: 0; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
 .gal-trilho { flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: env(safe-area-inset-bottom); }
+/* O arrasto vertical é do app (fecha a foto): sem isso o iPhone assume o gesto
+   como rolagem e cancela os eventos de toque — a foto não acompanhava o dedo. */
+#galeria { touch-action: none; }
+/* cada foto (.gal-slide tem overflow) conta como área de rolagem própria — a
+   regra precisa estar nela e na imagem, não só no trilho */
+.gal-trilho, .gal-slide, .gal-slide img { touch-action: pan-x; }
+.gal-slide.zoom, .gal-slide.zoom img { touch-action: pan-x pan-y; }
 .gal-trilho::-webkit-scrollbar { display: none; }
 .gal-slide { flex: none; width: 100%; height: 100%; scroll-snap-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .gal-slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
