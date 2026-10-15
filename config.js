@@ -1,5 +1,5 @@
 // Versão publicada (atualizada por versao.py) — aparece em ⚙️
-const OC_VERSAO = 7;
+const OC_VERSAO = 8;
 
 const OC = {
   api: 'https://api.github.com',

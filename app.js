@@ -125,14 +125,27 @@ setInterval(atualizarPill, 20000);
 const ir = (hash) => { location.hash = hash; };
 let timerTela = null;
 
+// A #tela é quem rola: ao trocar de aba começa do topo; a lista de anúncios
+// volta na mesma posição depois de abrir um anúncio.
+let rotaAtual = null;
+const posicoes = {};
 function render() {
   clearInterval(timerTela); timerTela = null;
+  const rotaNova = (location.hash.replace(/^#\/?/, '') || 'anuncios').split('/')[0];
+  if (rotaNova === rotaAtual) return desenharRota();
+  if (rotaAtual) posicoes[rotaAtual] = tela.scrollTop;
+  rotaAtual = rotaNova;
+  desenharRota();
+  tela.scrollTop = rotaNova === 'anuncios' ? (posicoes.anuncios || 0) : 0;
+}
+function desenharRota() {
   if (location.hash.startsWith('#cfg=')) return receberLinkConfig(location.hash);
   const h = location.hash.replace(/^#/, '') || '/anuncios';
   const [, rota, arg] = h.split('/');
   for (const a of document.querySelectorAll('.abas a')) a.classList.toggle('ativa', a.dataset.aba === rota);
   if (!Sync.configurado() && rota !== 'config') return vBoasVindas();
-  ({ anuncios: vAnuncios, anuncio: () => vAnuncio(arg), reservas: vReservas, pedidos: vPedidos, config: vConfig }[rota] || vAnuncios)();
+  ({ anuncios: vAnuncios, anuncio: () => vAnuncio(arg), reservas: vReservas, pedidos: vPedidos, notificacoes: vNotificacoes, config: vConfig }[rota] || vAnuncios)();
+  atualizarBadgeNotif();
 }
 window.addEventListener('hashchange', render);
 
@@ -179,7 +192,7 @@ function vAnuncios() {
   titulo('Anúncios');
   const d = Sync.dados();
   const lista = filtrar(d?.anuncios || []);
-  const rolagem = window.scrollY;
+  const rolagem = tela.scrollTop;
   tela.innerHTML = `
     <div class="filtros">
       <input type="search" id="busca" placeholder="Buscar título ou bairro…" value="${esc(pref.busca)}">
@@ -197,7 +210,7 @@ function vAnuncios() {
           <div class="selos">${selos(a)}</div>
         </div>
       </a>`).join('')}</div>`;
-  window.scrollTo(0, rolagem);
+  tela.scrollTop = rolagem;
   const busca = $('#busca');
   busca.addEventListener('input', () => {
     pref.busca = busca.value; salvarPref();
@@ -219,6 +232,7 @@ const STATUS = {
   cancelado: ['⛔', 'Compra cancelada.'],
   parado: ['⏹', 'Forçar compra parado.'],
   reserva_cancelada: ['✕', 'Reserva cancelada — a aba de pagamento foi fechada no PC.'],
+  nao_forcado: ['✋', 'Não vai forçar a compra.'],
 };
 
 function vAnuncio(id) {
@@ -260,9 +274,10 @@ async function mandarOrdem(a, tipo) {
     comprar: `Comprar pelo PC?\n\n${a.titulo}\n${fmtPreco(a)}\n\nO PC finaliza a compra e gera o PIX.`,
     forcar: `Forçar a compra pelo PC?\n\nO PC fica tentando até o anúncio liberar.`,
     parar_forcar: 'Parar o forçar compra no PC?',
+    nao_forcar: null, // sem confirmação: é só "não"
     cancelar_reserva: `Cancelar a reserva?\n\n${a.titulo}\n\nA aba de pagamento é fechada no PC e o Pix expira sem pagamento.`,
   };
-  if (!confirm(confirmacoes[tipo])) return;
+  if (confirmacoes[tipo] && !confirm(confirmacoes[tipo])) return;
   guardarOrdem(a.id, 'local-' + Date.now(), tipo); // mostra "Enviando…" já
   desenharStatusOrdem(a);
   try {
@@ -308,7 +323,10 @@ function desenharStatusOrdem(a) {
       ${cancelando(a.id) ? '<div class="sub">✕ Cancelando no PC…</div>' : '<button type="button" class="btn perigo grande" id="cancelarReserva">✕ Cancelar reserva</button>'}
     </div>`;
   }
-  if (status === 'reservado') html += '<button type="button" class="btn grande" id="forcarPc">⚡ Forçar compra pelo PC</button>';
+  if (status === 'reservado') html += `<div class="decisao">
+      <button type="button" class="btn prim grande" id="forcarPc">⚡ Forçar compra</button>
+      <button type="button" class="btn perigo grande" id="naoForcarPc">✋ Não forçar</button>
+    </div>`;
   if (status === 'forcando') html += '<button type="button" class="btn perigo" id="pararPc">⏹ Parar forçar compra</button>';
   if (box.dataset.html === html) return; // nada mudou (o timer roda a cada 1 s)
   box.dataset.html = html;
@@ -316,6 +334,7 @@ function desenharStatusOrdem(a) {
   $('#copiarPix')?.addEventListener('click', () => copiar(reserva.pix, 'Código Pix copiado — cole no app do banco'));
   $('#cancelarReserva')?.addEventListener('click', () => mandarOrdem(a, 'cancelar_reserva'));
   $('#forcarPc')?.addEventListener('click', () => mandarOrdem(a, 'forcar'));
+  $('#naoForcarPc')?.addEventListener('click', () => mandarOrdem(a, 'nao_forcar'));
   $('#pararPc')?.addEventListener('click', () => mandarOrdem(a, 'parar_forcar'));
 }
 
@@ -330,7 +349,9 @@ function vReservas() {
   // aparecem como reserva, com o selo "🎯 Automática".
   const auto = d?.autoCompras || [];
   const autoIds = new Set(auto.map((x) => String(x.listId)));
+  const ocultas = autoOcultas();
   const autoAndamento = auto
+    .filter((x) => !ocultas.includes(chaveAuto(x)))
     .filter((x) => !reservas.some((r) => String(r.listId) === String(x.listId)) && /^(comprando|falhou|cancelada)/.test(x.status || ''))
     .sort((x, y) => (y.ts || 0) - (x.ts || 0));
   const statusAuto = (s) => /^comprando/.test(s) ? '🔄 Comprando no PC…'
@@ -341,9 +362,12 @@ function vReservas() {
       ${blocoAutoCompra(d)}
       ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas</div>${autoAndamento.map((x) => `
         <a class="card pad auto-compra" href="#/anuncio/${encodeURIComponent(x.listId)}">
-          <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}</div>
-          <div class="sub">${esc([String(x.console || '').toUpperCase(), x.preco].filter(Boolean).join(' · '))} · ${relativo(x.ts || 0)}</div>
-          <div class="st ${/^comprando/.test(x.status) ? 'andando' : 'parou'}">${esc(statusAuto(x.status || ''))}</div>
+          <div class="info">
+            <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}</div>
+            <div class="sub">${esc([String(x.console || '').toUpperCase(), x.preco].filter(Boolean).join(' · '))} · ${relativo(x.ts || 0)}</div>
+            <div class="st ${/^comprando/.test(x.status) ? 'andando' : 'parou'}">${esc(statusAuto(x.status || ''))}</div>
+          </div>
+          ${/^comprando/.test(x.status || '') ? '' : `<button type="button" class="lixeira" data-ocultar="${esc(chaveAuto(x))}" aria-label="Remover da lista">🗑️</button>`}
         </a>`).join('')}` : ''}
       ${!reservas.length && !forcando.length && !autoAndamento.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
       ${reservas.length && autoAndamento.length ? '<div class="secao">⏱ Aguardando pagamento</div>' : ''}
@@ -366,6 +390,13 @@ function vReservas() {
       ${forcando.length ? `<div class="secao">⚡ Forçando compra no PC</div>${forcando.map((f) => `
         <div class="card pad"><b>${esc(f.titulo || f.listId)}</b><div class="sub">${esc(f.preco || '')} · tentativa ${f.tentativa || 0}</div></div>`).join('')}` : ''}`;
     ligarBotoesAutoCompra(desenhar);
+    for (const b of document.querySelectorAll('[data-ocultar]')) {
+      b.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation(); // o card é um link pro anúncio
+        ocultarAuto(b.dataset.ocultar);
+        vReservas();
+      });
+    }
     for (const b of document.querySelectorAll('[data-pix]')) {
       b.addEventListener('click', () => copiar(reservas[+b.dataset.pix].pix, 'Código Pix copiado — cole no app do banco'));
     }
@@ -395,6 +426,62 @@ function vReservas() {
       el.classList.toggle('expirado', resta <= 0);
     }
   }, 1000);
+}
+
+// Compras automáticas removidas pela 🗑️ (só some deste celular). A chave leva o
+// horário: se o PC tentar o mesmo anúncio de novo, o card novo aparece.
+const OCULTAS_KEY = 'olxcel:autoOcultas';
+const chaveAuto = (x) => `${x.listId}|${x.ts || 0}`;
+function autoOcultas() { try { return JSON.parse(localStorage.getItem(OCULTAS_KEY)) || []; } catch { return []; } }
+function ocultarAuto(chave) {
+  const l = autoOcultas().filter((k) => k !== chave);
+  l.push(chave);
+  localStorage.setItem(OCULTAS_KEY, JSON.stringify(l.slice(-100)));
+  toast('Removido da lista');
+}
+
+// ─── Avisos (histórico de notificações da dashboard do PC) ──────────────────
+const NOTIF_VISTO_KEY = 'olxcel:notifVisto';
+const NOTIF_CFG = {
+  sucesso: ['#00e5a0', '🎉', 'Compra realizada'],
+  erro: ['#ef4444', '❌', 'Erro'],
+  reservado: ['#f59e0b', '🔒', 'Reservado'],
+  vendido: ['#94a3b8', '🚫', 'Já vendido'],
+  suspensa: ['#ef4444', '⛔', 'Conta suspensa'],
+  info: ['#0ea5e9', 'ℹ️', 'Info'],
+  autocompra: ['#f59e0b', '🎯', 'Compra automática'],
+  'autocompra-cancelada': ['#94a3b8', '⏭', 'Compra automática cancelada'],
+  'autocompra-suspeita': ['#ef4444', '⚠️', 'Compra suspeita — confira'],
+  'autocompra-defeito': ['#ef4444', '❌', 'Compra cancelada — defeito'],
+  'login-pausado': ['#ef4444', '🔒', 'Login automático pausado'],
+  'verificacao-completa': ['#00e5a0', '🔁', 'Verificação completa'],
+  'verificacao-interrompida': ['#f59e0b', '⏹', 'Verificação interrompida'],
+  golpe: ['#ef4444', '⛔', 'Compra automática cancelada'],
+};
+const notifVisto = () => Number(localStorage.getItem(NOTIF_VISTO_KEY) || 0);
+function atualizarBadgeNotif() {
+  const lista = Sync.dados()?.notificacoes || [];
+  const b = $('#badgeNotif');
+  if (b) b.hidden = rotaAtual === 'notificacoes' || !lista.some((n) => (n.ts || 0) > notifVisto());
+}
+function vNotificacoes() {
+  titulo('Avisos');
+  const lista = Sync.dados()?.notificacoes || [];
+  const visto = notifVisto();
+  if (!lista.length) {
+    tela.innerHTML = '<div class="vazio">Nenhuma notificação ainda.<br><small>Aqui aparece o mesmo histórico do 🔔 da dashboard do PC.</small></div>';
+  } else {
+    tela.innerHTML = lista.map((n) => {
+      const [cor, icone, nome] = NOTIF_CFG[n.tipo] || ['#94a3b8', '•', n.tipo || 'Aviso'];
+      return `<div class="card pad notif${(n.ts || 0) > visto ? ' nova' : ''}" style="border-left-color:${cor}">
+        <div class="rotulo"><span style="color:${cor}">${icone} ${esc(nome.toUpperCase())}</span><span>${n.ts ? relativo(n.ts) : esc(`${n.data || ''} ${n.hora || ''}`)}</span></div>
+        ${n.titulo ? `<div class="t">${esc(n.titulo)}</div>` : ''}
+        ${n.msg ? `<div class="m">${esc(n.msg)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  const ultimo = Math.max(0, ...lista.map((n) => n.ts || 0));
+  if (ultimo > visto) localStorage.setItem(NOTIF_VISTO_KEY, String(ultimo));
 }
 
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
@@ -637,6 +724,7 @@ async function lerQr() {
 let idsVistos = new Set((Sync.dados()?.anuncios || []).map((a) => a.id));
 Sync.ouvir((estado, d) => {
   atualizarPill();
+  atualizarBadgeNotif();
   if (d) {
     const novos = (d.anuncios || []).filter((a) => !idsVistos.has(a.id));
     if (novos.length && idsVistos.size) {
@@ -650,6 +738,7 @@ Sync.ouvir((estado, d) => {
   if (rota === 'anuncios' && document.activeElement?.id !== 'busca') vAnuncios();
   else if (rota === 'reservas') vReservas();
   else if (rota === 'pedidos') vPedidos();
+  else if (rota === 'notificacoes') vNotificacoes();
   else if (rota === 'config' && Sync.configurado()) vConfig();
   else if (rota === 'anuncio') { const a = (d?.anuncios || []).find((x) => String(x.id) === decodeURIComponent(location.hash.split('/')[2] || '')); if (a) desenharStatusOrdem(a); }
 });

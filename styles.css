@@ -8,11 +8,17 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { background: var(--bg); }
+/* Só a área #tela rola (entre o topo e as abas). Com a página inteira rolando,
+   o iPhone às vezes deixava o menu de baixo "parado" no meio da tela. */
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
   font: 15px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text); background: var(--bg);
-  padding: var(--topo) 12px calc(var(--abas) + 12px);
-  min-height: 100vh;
+}
+#tela {
+  position: fixed; top: var(--topo); bottom: var(--abas); left: 0; right: 0;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: 0 12px 16px;
 }
 a { color: var(--accent2); }
 b { font-weight: 700; }
@@ -44,7 +50,9 @@ b { font-weight: 700; }
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   color: var(--muted); text-decoration: none; font-size: 11px; font-weight: 600;
 }
+.abas a { position: relative; }
 .abas a span { font-size: 20px; }
+.abas a i { position: absolute; top: 8px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--bg); }
 .abas a.ativa { color: var(--accent); }
 
 /* ── Blocos ── */
@@ -79,7 +87,7 @@ b { font-weight: 700; }
 .btn:disabled { opacity: .5; }
 
 /* ── Filtros ── */
-.filtros { position: sticky; top: var(--topo); z-index: 10; background: var(--bg); padding: 10px 0 6px; margin: 0 -12px; padding-inline: 12px; }
+.filtros { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 10px 0 6px; margin: 0 -12px; padding-inline: 12px; }
 .filtros input[type=search] {
   width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface2); color: var(--text); font: inherit;
@@ -139,7 +147,19 @@ b { font-weight: 700; }
 .auto-toggle.off b { color: var(--muted); }
 .auto-toggle .btn { flex: none; }
 /* Compras automáticas em andamento (aba Reservas) */
-.auto-compra { display: block; text-decoration: none; color: inherit; }
+.auto-compra { display: flex; align-items: flex-start; gap: 8px; text-decoration: none; color: inherit; }
+.auto-compra .info { flex: 1; min-width: 0; }
+.lixeira { flex: none; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, .4); background: rgba(239, 68, 68, .08); font-size: 17px; cursor: pointer; }
+/* Aba 🔔 Avisos (histórico de notificações da dashboard) */
+.notif { border-left: 3px solid var(--muted); }
+.notif .rotulo { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .4px; }
+.notif .rotulo span:last-child { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.notif .t { font-weight: 700; margin-top: 4px; overflow-wrap: anywhere; }
+.notif .m { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+.notif.nova { background: var(--surface2); }
+.decisao { display: flex; gap: 8px; }
+.decisao .btn { flex: 1; min-width: 0; margin-top: 8px; padding-inline: 8px; }
 .auto-compra .st { margin-top: 8px; font-weight: 700; font-size: 14px; }
 .auto-compra .st.andando { color: var(--accent); }
 .auto-compra .st.parou { color: #fca5a5; }
