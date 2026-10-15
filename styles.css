@@ -186,6 +186,9 @@ b { font-weight: 700; }
 /* ── Reservas e pedidos ── */
 .cron { font-size: 26px; font-weight: 800; color: var(--accent); margin-top: 6px; font-variant-numeric: tabular-nums; }
 .cron.expirado { color: var(--red); font-size: 18px; }
+.topo-pedidos { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.topo-pedidos .sub { margin: 0; min-width: 0; }
+.topo-pedidos .btn { margin: 0; flex: none; }
 .pedido { display: flex; gap: 10px; }
 .pedido img { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; }
 .pedido .info { min-width: 0; }

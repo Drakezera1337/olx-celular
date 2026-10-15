@@ -559,23 +559,22 @@ function vNotificacoes() {
 
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
 const GRUPOS = [['transito', '🚚 Em trânsito'], ['preparacao', '📦 Em preparação'], ['cancelamento', '❌ Em cancelamento'], ['entregue', '✅ Entregues']];
-// pedido.olx.com.br/<id> não abre no app da OLX (vai pro navegador). O formato
-// abaixo foi o que melhor funcionou no iPhone (testado em out/2026): abre o app
-// direto em "Minhas compras" — não no pedido em si (a OLX não tem link público
-// pra isso). O orderId vai junto caso o app passe a usar.
-function linkPedidoApp(link) {
-  const m = /^https:\/\/pedido\.olx\.com\.br\/(\d+)/.exec(link || '');
-  return m ? `https://meus-pedidos.olx.com.br/minhas-compras?orderId=${m[1]}` : '';
+// Abre o app da OLX direto em "Minhas compras" no iPhone (formato testado em
+// out/2026). Não existe link público que abra um pedido específico no app.
+// Vai com o número de um pedido real (o primeiro da lista), igual ao link testado.
+function btnMinhasCompras(pedidos = []) {
+  const id = pedidos.map((p) => /^https:\/\/pedido\.olx\.com\.br\/(\d+)/.exec(p.link || '')?.[1]).find(Boolean) || '';
+  return `<a class="btn mini prim" href="https://meus-pedidos.olx.com.br/minhas-compras?orderId=${id}" target="_blank" rel="noopener">📱 Minhas compras no app</a>`;
 }
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
   const pedidos = d?.pedidos || [];
   if (!pedidos.length) {
-    tela.innerHTML = '<div class="vazio">Nenhum pedido ainda.<br><small>No PC, use “Verificar compras” ou “Verificação Completa” na dashboard.</small></div>';
+    tela.innerHTML = `<div class="topo-pedidos"><span></span>${btnMinhasCompras()}</div>` + '<div class="vazio">Nenhum pedido ainda.<br><small>No PC, use “Verificar compras” ou “Verificação Completa” na dashboard.</small></div>';
     return;
   }
-  tela.innerHTML = `<div class="sub centro">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</div>
+  tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
     ${GRUPOS.map(([tipo, nome]) => {
       const g = pedidos.filter((p) => p.statusTipo === tipo);
       if (!g.length) return '';
@@ -588,7 +587,6 @@ function vPedidos() {
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
             ${p.codigoRastreio ? `<button type="button" class="btn mini" data-cod="${esc(p.codigoRastreio)}">📋 ${esc(p.codigoRastreio)}</button>` : ''}
-            ${linkPedidoApp(p.link) ? `<a class="btn mini prim" href="${esc(linkPedidoApp(p.link))}" target="_blank" rel="noopener">📱 Minhas compras no app</a>` : ''}
             ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">Ver pedido</a>` : ''}
           </div>
         </div>`).join('')}`;
