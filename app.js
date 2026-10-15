@@ -559,6 +559,14 @@ function vNotificacoes() {
 
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
 const GRUPOS = [['transito', '🚚 Em trânsito'], ['preparacao', '📦 Em preparação'], ['cancelamento', '❌ Em cancelamento'], ['entregue', '✅ Entregues']];
+// pedido.olx.com.br/<id> não abre no app da OLX (vai pro navegador). O formato
+// abaixo foi o que melhor funcionou no iPhone (testado em out/2026): abre o app
+// direto em "Minhas compras" — não no pedido em si (a OLX não tem link público
+// pra isso). O orderId vai junto caso o app passe a usar.
+function linkPedidoApp(link) {
+  const m = /^https:\/\/pedido\.olx\.com\.br\/(\d+)/.exec(link || '');
+  return m ? `https://meus-pedidos.olx.com.br/minhas-compras?orderId=${m[1]}` : '';
+}
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
@@ -580,6 +588,7 @@ function vPedidos() {
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
             ${p.codigoRastreio ? `<button type="button" class="btn mini" data-cod="${esc(p.codigoRastreio)}">📋 ${esc(p.codigoRastreio)}</button>` : ''}
+            ${linkPedidoApp(p.link) ? `<a class="btn mini prim" href="${esc(linkPedidoApp(p.link))}" target="_blank" rel="noopener">📱 Minhas compras no app</a>` : ''}
             ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">Ver pedido</a>` : ''}
           </div>
         </div>`).join('')}`;
