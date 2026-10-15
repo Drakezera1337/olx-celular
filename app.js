@@ -450,7 +450,7 @@ const NOTIF_CFG = {
   suspensa: ['#ef4444', '⛔', 'Conta suspensa'],
   info: ['#0ea5e9', 'ℹ️', 'Info'],
   autocompra: ['#f59e0b', '🎯', 'Compra automática'],
-  'autocompra-cancelada': ['#94a3b8', '⏭', 'Compra automática cancelada'],
+  'autocompra-cancelada': ['#ef4444', '⏭', 'Compra automática cancelada'],
   'autocompra-suspeita': ['#ef4444', '⚠️', 'Compra suspeita — confira'],
   'autocompra-defeito': ['#ef4444', '❌', 'Compra cancelada — defeito'],
   'login-pausado': ['#ef4444', '🔒', 'Login automático pausado'],
