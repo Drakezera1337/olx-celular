@@ -250,10 +250,10 @@ function vAnuncio(id) {
       <div class="sub">🕒 ${a.publicado ? `Publicado ${esc(a.publicado)} · ` : ''}captado ${relativo((a.ts || 0) * 1000)}</div>
     </div>
     <div class="card pad compra">
-      <a class="btn prim grande" href="${checkoutUrl(a.id)}" target="_blank" rel="noopener">🛒 Comprar aqui</a>
+      <a class="btn prim grande" href="${esc(a.link || checkoutUrl(a.id))}" target="_blank" rel="noopener">📱 Comprar no app da OLX</a>
       <button type="button" class="btn grande" id="comprarPc">💻 Comprar pelo PC</button>
       <div id="statusOrdem"></div>
-      <div class="sub dica">“Comprar aqui” abre o checkout da OLX neste celular (conta logada aqui). “Comprar pelo PC” faz a Compra Rápida na extensão (Expressa + Pix) com a conta logada no PC${d.pc?.conta ? ` (<b>${esc(d.pc.conta)}</b>)` : ''}.</div>
+      <div class="sub dica">“Comprar no app da OLX” abre o anúncio direto no app da OLX deste celular (conta logada nele) — é só tocar em Comprar lá. “Comprar pelo PC” faz a Compra Rápida na extensão (Expressa + Pix) com a conta logada no PC${d.pc?.conta ? ` (<b>${esc(d.pc.conta)}</b>)` : ''}.</div>
     </div>
     <div class="card pad">
       <b>Vendedor</b>
