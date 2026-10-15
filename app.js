@@ -336,7 +336,51 @@ function abrirGaleria(fotos, inicio = 0) {
       if (e.target === slide && !slide.classList.contains('zoom')) setTimeout(() => { if (ultimoToque === agora) history.back(); }, 320);
     });
   }
+  arrastarParaFechar(g, trilho);
   history.pushState({ galeria: true }, '');
+}
+// Arrastar a foto pra baixo fecha a tela cheia (como no app de Fotos): a foto
+// acompanha o dedo e o fundo vai clareando; soltou depois de ~120 px (ou num
+// puxão rápido) fecha, senão volta pro lugar. Só vale com a foto sem zoom e
+// quando o gesto começa na vertical — o deslize pro lado continua trocando foto.
+function arrastarParaFechar(g, trilho) {
+  let x0 = 0, y0 = 0, t0 = 0, modo = null, dy = 0;
+  trilho.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || e.target.closest('.gal-slide.zoom')) { modo = 'nada'; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); modo = null; dy = 0;
+  }, { passive: true });
+  trilho.addEventListener('touchmove', (e) => {
+    if (modo === 'nada' || e.touches.length !== 1) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!modo) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      modo = my > 0 && Math.abs(my) > Math.abs(mx) ? 'fechar' : 'nada';
+      if (modo !== 'fechar') return;
+      trilho.style.transition = g.style.transition = 'none';
+    }
+    e.preventDefault(); // não rola nada por baixo enquanto arrasta
+    dy = Math.max(0, my);
+    trilho.style.transform = `translateY(${dy}px) scale(${1 - Math.min(dy / 2000, 0.15)})`;
+    g.style.backgroundColor = `rgba(0,0,0,${Math.max(0.2, 1 - dy / 400)})`;
+  }, { passive: false });
+  const soltar = () => {
+    if (modo !== 'fechar') { modo = null; return; }
+    modo = null;
+    const rapido = dy > 40 && dy / Math.max(1, Date.now() - t0) > 0.6;
+    trilho.style.transition = 'transform .2s ease, opacity .2s ease';
+    g.style.transition = 'background-color .2s ease';
+    if (dy > 120 || rapido) {
+      trilho.style.transform = `translateY(${window.innerHeight}px)`;
+      trilho.style.opacity = '0';
+      g.style.backgroundColor = 'rgba(0,0,0,0)';
+      setTimeout(() => { if (document.getElementById('galeria') === g) history.back(); }, 180);
+    } else {
+      trilho.style.transform = '';
+      g.style.backgroundColor = '';
+    }
+  };
+  trilho.addEventListener('touchend', soltar);
+  trilho.addEventListener('touchcancel', soltar);
 }
 function fecharGaleria() { document.getElementById('galeria')?.remove(); }
 window.addEventListener('popstate', fecharGaleria);
