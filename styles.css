@@ -131,6 +131,20 @@ b { font-weight: 700; }
   flex: none; width: 86%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; scroll-snap-align: center;
   background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 40px;
 }
+.fotos img { cursor: zoom-in; }
+/* Fotos em tela cheia */
+#galeria { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+.gal-topo {
+  display: flex; align-items: center; justify-content: space-between; padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+  color: #fff; font-weight: 700; font-size: 15px;
+}
+.gal-x { background: rgba(255, 255, 255, .14); border: 0; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
+.gal-trilho { flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: env(safe-area-inset-bottom); }
+.gal-trilho::-webkit-scrollbar { display: none; }
+.gal-slide { flex: none; width: 100%; height: 100%; scroll-snap-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.gal-slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.gal-slide.zoom { overflow: auto; display: block; }
+.gal-slide.zoom img { max-width: none; max-height: none; width: 250%; }
 .compra .dica { margin-top: 12px; font-size: 12px; }
 .status { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); font-weight: 600; }
 .status > span { font-size: 20px; line-height: 1.2; }

@@ -88,6 +88,31 @@ function cronometro(ms) {
   const t = Math.max(0, Math.floor(ms / 1000));
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
+// Fotos da OLX: o PC manda a original (/images/…, ~110 KB). A lista usa a
+// miniatura (/thumbs256x256, ~10 KB) e o carrossel a média (/thumbs1200x900, ~40-70 KB) —
+// com 200 originais de uma vez o servidor de imagens da OLX recusava parte
+// delas e só as primeiras apareciam. A tela cheia usa a original.
+const FOTO_RE = /^(https:\/\/img\.olx\.com\.br\/)(?:images|thumbs\d+x\d+)\/(\d+\/\d+)\.(?:jpg|jpeg|webp|png)(\?.*)?$/i;
+function fotoTam(url, tam) {
+  const m = FOTO_RE.exec(url || '');
+  if (!m) return url || '';
+  return tam === 'original' ? `${m[1]}images/${m[2]}.jpg` : `${m[1]}${tam}/${m[2]}.jpg`;
+}
+// <img> com nova tentativa: se falhar, tenta de novo (até 2x, com intervalo) e
+// por último a versão original da foto.
+function imgFoto(url, tam, extra = '') {
+  return `<img ${extra} referrerpolicy="no-referrer" decoding="async" src="${esc(fotoTam(url, tam))}" data-orig="${esc(url)}" alt="">`;
+}
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.orig) return;
+  const n = Number(img.dataset.tent || 0) + 1;
+  img.dataset.tent = n;
+  if (n > 3) return;
+  const base = n === 3 ? img.dataset.orig : img.src.replace(/[?&]r=\d+$/, '');
+  setTimeout(() => { img.src = base + (n === 3 ? '' : (base.includes('?') ? '&' : '?') + 'r=' + n); }, 800 * n);
+}, true);
+
 const checkoutUrl = (id) => `https://comprasegura.olx.com.br/?listId=${encodeURIComponent(id)}&source=ADVIEW`;
 const chatUrl = (id) => `https://chat.olx.com.br/?list-id=${encodeURIComponent(id)}`;
 
@@ -202,7 +227,7 @@ function vAnuncios() {
     ${!d ? '<div class="vazio">Carregando…</div>' : !lista.length ? '<div class="vazio">Nenhum anúncio com esses filtros.</div>' : ''}
     <div class="lista">${lista.map((a) => `
       <a class="anuncio" href="#/anuncio/${encodeURIComponent(a.id)}">
-        <div class="foto">${a.fotos?.[0] ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(a.fotos[0])}" alt="">` : '<span>📷</span>'}</div>
+        <div class="foto">${a.fotos?.[0] ? imgFoto(a.fotos[0], 'thumbs256x256', 'loading="lazy"') : '<span>📷</span>'}</div>
         <div class="info">
           <div class="t">${esc(a.titulo)}</div>
           <div class="preco">${esc(fmtPreco(a))}</div>
@@ -241,7 +266,8 @@ function vAnuncio(id) {
   titulo('Anúncio', true);
   if (!a) { tela.innerHTML = '<div class="vazio">Anúncio não encontrado (saiu da lista do PC).</div>'; return; }
   tela.innerHTML = `
-    <div class="fotos">${(a.fotos?.length ? a.fotos : [null]).map((f) => f ? `<img referrerpolicy="no-referrer" src="${esc(f)}" alt="">` : '<div class="sem-foto">📷</div>').join('')}</div>
+    <div class="fotos">${(a.fotos?.length ? a.fotos : [null]).map((f, i) => f ? imgFoto(f, 'thumbs1200x900', `data-foto="${i}"`) : '<div class="sem-foto">📷</div>').join('')}</div>
+    ${a.fotos?.length > 1 ? `<div class="sub centro">${a.fotos.length} fotos · deslize para o lado · toque para ampliar</div>` : ''}
     <div class="card pad">
       <div class="det-titulo">${esc(a.titulo)}</div>
       <div class="det-preco">${esc(fmtPreco(a))}</div>
@@ -264,10 +290,57 @@ function vAnuncio(id) {
         <a class="btn" href="${chatUrl(a.id)}" target="_blank" rel="noopener">💬 Chat</a>
       </div>
     </div>`;
+  for (const img of document.querySelectorAll('.fotos img[data-foto]')) img.addEventListener('click', () => abrirGaleria(a.fotos, +img.dataset.foto));
   $('#comprarPc').addEventListener('click', () => mandarOrdem(a, 'comprar'));
   desenharStatusOrdem(a);
   timerTela = setInterval(() => desenharStatusOrdem(a), 1000);
 }
+
+// ─── Fotos em tela cheia ────────────────────────────────────────────────────
+// Desliza para o lado entre as fotos; dois toques amplia (e dá pra arrastar);
+// ✕, tocar fora da foto ou "voltar" do celular fecha.
+function abrirGaleria(fotos, inicio = 0) {
+  if (!fotos?.length) return;
+  fecharGaleria();
+  const g = document.createElement('div');
+  g.id = 'galeria';
+  g.innerHTML = `
+    <div class="gal-topo"><span id="galCont">${inicio + 1} / ${fotos.length}</span><button type="button" class="gal-x" aria-label="Fechar">✕</button></div>
+    <div class="gal-trilho">${fotos.map((f) => `<div class="gal-slide">${imgFoto(f, 'original', 'loading="lazy"')}</div>`).join('')}</div>`;
+  document.body.appendChild(g);
+  const trilho = $('.gal-trilho', g);
+  requestAnimationFrame(() => { trilho.scrollLeft = inicio * trilho.clientWidth; });
+  trilho.addEventListener('scroll', () => {
+    $('#galCont').textContent = `${Math.round(trilho.scrollLeft / trilho.clientWidth) + 1} / ${fotos.length}`;
+  }, { passive: true });
+  $('.gal-x', g).addEventListener('click', () => history.back());
+  for (const slide of g.querySelectorAll('.gal-slide')) {
+    let ultimoToque = 0;
+    slide.addEventListener('click', (e) => {
+      const agora = Date.now();
+      if (agora - ultimoToque < 300) { // dois toques: amplia / volta ao normal
+        const img = $('img', slide);
+        const zoom = !slide.classList.contains('zoom');
+        slide.classList.toggle('zoom', zoom);
+        if (zoom) {
+          const r = img.getBoundingClientRect();
+          requestAnimationFrame(() => {
+            slide.scrollLeft = (e.clientX - r.left) * 1.5;
+            slide.scrollTop = (e.clientY - r.top) * 1.5;
+          });
+        }
+        ultimoToque = 0;
+        return;
+      }
+      ultimoToque = agora;
+      if (e.target === slide && !slide.classList.contains('zoom')) setTimeout(() => { if (ultimoToque === agora) history.back(); }, 320);
+    });
+  }
+  history.pushState({ galeria: true }, '');
+}
+function fecharGaleria() { document.getElementById('galeria')?.remove(); }
+window.addEventListener('popstate', fecharGaleria);
+window.addEventListener('hashchange', fecharGaleria);
 
 async function mandarOrdem(a, tipo) {
   const confirmacoes = {
