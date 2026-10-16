@@ -798,7 +798,7 @@ function cartaoNotificacoes(d) {
   else estado = perm === 'granted' && d.push.inscritos ? `✅ Ativadas · ${d.push.inscritos} aparelho(s) inscrito(s) no PC` : 'Desligadas.';
   return `<div class="card pad" style="margin-top:12px">
     <b>🔔 Notificações</b>
-    <p class="sub">Aviso no celular quando o PC <b>inicia uma compra automática</b> (console e preço). Tocar abre as Reservas.</p>
+    <p class="sub">Avisos do PC: <b>compra automática</b> iniciada ou cancelada, <b>anúncio reservado</b> numa compra pedida daqui e <b>game novo das fontes regionais</b> (Campos, SFI, SJB, Macaé — tocar abre o anúncio).</p>
     <div class="sub">${estado}</div>
     ${resp ? `<div class="sub ${resp.status === 'push_ok' ? 'ok' : ''}">${resp.status === 'push_ok' ? '✅' : '⚠️'} ${esc(resp.msg)}</div>` : ''}
     ${suporta && perm !== 'denied' && d?.push?.chave ? `<div class="acoes">
@@ -982,7 +982,11 @@ Sync.ouvir((estado, d) => {
   else if (rota === 'pedidos') vPedidos();
   else if (rota === 'notificacoes') vNotificacoes();
   else if (rota === 'config' && Sync.configurado()) vConfig();
-  else if (rota === 'anuncio') { const a = (d?.anuncios || []).find((x) => String(x.id) === decodeURIComponent(location.hash.split('/')[2] || '')); if (a) desenharStatusOrdem(a); }
+  else if (rota === 'anuncio') {
+    const a = (d?.anuncios || []).find((x) => String(x.id) === decodeURIComponent(location.hash.split('/')[2] || ''));
+    // Aberto pela notificação antes do anúncio chegar ("não encontrado"): desenha agora
+    if (a) (document.getElementById('statusOrdem') ? desenharStatusOrdem(a) : desenharRota());
+  }
 });
 
 // ─── Atualização do app ─────────────────────────────────────────────────────
