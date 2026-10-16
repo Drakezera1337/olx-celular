@@ -136,7 +136,7 @@ function atualizarPill() {
     if (Sync.estado.status === 'erro') { cls = 'erro'; txt = 'Erro'; }
     else if (d?.ts) {
       const idade = Date.now() - d.ts;
-      if (idade < 120000) { cls = 'ok'; txt = 'PC online'; }
+      if (idade < 6 * 60 * 1000) { cls = 'ok'; txt = 'PC online'; } // o PC manda sinal de vida a cada 5 min
       else { cls = 'aviso'; txt = `PC ${relativo(d.ts)}`; }
     } else { cls = 'aviso'; txt = '…'; }
   }
@@ -525,7 +525,7 @@ function desenharStatusOrdem(a) {
   let html = `<div class="status st-${status}"><span>${ic}</span><div>${esc(resp?.msg || txtPadrao)}`;
   if (status === 'enviando' && o && !o.id.startsWith('local-')) {
     const idade = d?.ts ? Date.now() - d.ts : Infinity;
-    html += `<div class="sub">${idade > 120000 ? '⚠️ O PC não dá sinal há algum tempo — confira se ele está ligado com o Chrome aberto.' : 'Aguardando o PC (alguns segundos)…'}</div>`;
+    html += `<div class="sub">${idade > 6 * 60 * 1000 ? '⚠️ O PC não dá sinal há algum tempo — confira se ele está ligado com o Chrome aberto.' : 'Aguardando o PC (alguns segundos)…'}</div>`;
   }
   if (status === 'forcando' && forcando) html += `<div class="sub">Tentativa ${forcando.tentativa || 0}</div>`;
   html += '</div></div>';
