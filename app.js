@@ -569,9 +569,15 @@ function vReservas() {
   // Reservados por outra pessoa esperando "forçar compra?" (qualquer origem)
   const reservados = (d?.reservados || []).slice().sort((x, y) => (y.ts || 0) - (x.ts || 0));
   const reservadosIds = new Set(reservados.map((x) => String(x.listId)));
-  const decidindo = (listId) => {
-    const o = ordens()[listId];
-    return o && ['forcar', 'nao_forcar'].includes(o.tipo) && Date.now() - o.ts < 2 * 60 * 1000 ? o.tipo : null;
+  // Respondeu ESTA reserva e o PC ainda não confirmou? (uma resposta a uma
+  // reserva anterior do mesmo anúncio não conta — senão os botões sumiam
+  // quando o anúncio caía em "reservado" de novo)
+  const decidindo = (r) => {
+    const o = ordens()[String(r.listId)];
+    if (!o || !['forcar', 'nao_forcar'].includes(o.tipo) || Date.now() - o.ts > 2 * 60 * 1000) return null;
+    if (o.ts < (r.ts || 0) - 5000) return null;
+    if (!o.id.startsWith('local-') && d?.respostas?.[o.id]) return null;
+    return o.tipo;
   };
   const ocultas = autoOcultas();
   const autoAndamento = auto
@@ -585,7 +591,7 @@ function vReservas() {
     tela.innerHTML = `
       ${blocoAutoCompra(d)}
       ${reservados.length ? `<div class="secao">🔒 Reservado por outra pessoa</div>${reservados.map((r, i) => {
-        const dec = decidindo(String(r.listId));
+        const dec = decidindo(r);
         return `<div class="card pad reservado-outro">
           <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}${r.automatica ? ' <span class="selo verde">🎯 Automática</span>' : ''}</div>
           <div class="sub">${esc(r.preco || '')}${r.preco ? ' · ' : ''}${relativo(r.ts || 0)}</div>
