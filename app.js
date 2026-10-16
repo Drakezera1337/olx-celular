@@ -548,7 +548,6 @@ function vReservas() {
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
           <div class="cron ${resta <= 0 ? 'expirado' : ''}" data-lid="${esc(r.listId)}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
           ${r.suspeitaGolpe ? `<div class="aviso erro">⛔ Atenção: anúncio ${esc(r.motivoSuspeita || 'suspeito')} — confira antes de pagar!</div>` : ''}
-          ${r.confirmadaWhats ? '<div class="sub ok">✅ Mantida pelo WhatsApp</div>' : ''}
           <div class="acoes">
             ${r.pix ? `<button type="button" class="btn prim" data-pix="${i}">📋 Copiar Pix</button>` : '<span class="sub">Pix ainda não lido</span>'}
             ${r.link ? `<a class="btn" href="${esc(r.link)}" target="_blank" rel="noopener">Ver anúncio</a>` : ''}
