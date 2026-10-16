@@ -92,6 +92,10 @@ b { font-weight: 700; }
   width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface2); color: var(--text); font: inherit;
 }
+/* Dentro do anúncio o deslize horizontal é do app (voltar); o carrossel de
+   fotos continua deslizando pro lado */
+#tela.tela-anuncio { touch-action: pan-y; }
+#tela.tela-anuncio .fotos { touch-action: pan-x pan-y; }
 .chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 4px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip {
@@ -198,7 +202,9 @@ b { font-weight: 700; }
 .topo-pedidos .btn { margin: 0; flex: none; }
 .pedido { display: flex; gap: 10px; }
 .pedido img { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; }
-.pedido .info { min-width: 0; }
+.pedido .info { min-width: 0; flex: 1; }
+.pedido { position: relative; }
+.pedido .lixeira { order: 3; align-self: flex-start; }
 .pedido .conta { color: var(--accent2); font-weight: 700; font-size: 13px; margin-top: 2px; }
 
 /* ── Formulário ── */

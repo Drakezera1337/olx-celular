@@ -168,6 +168,8 @@ function desenharRota() {
   const h = location.hash.replace(/^#/, '') || '/anuncios';
   const [, rota, arg] = h.split('/');
   for (const a of document.querySelectorAll('.abas a')) a.classList.toggle('ativa', a.dataset.aba === rota);
+  tela.classList.toggle('tela-anuncio', rota === 'anuncio');
+  tela.style.transform = tela.style.transition = tela.style.opacity = ''; // depois do deslizar pra voltar
   if (!Sync.configurado() && rota !== 'config') return vBoasVindas();
   ({ anuncios: vAnuncios, anuncio: () => vAnuncio(arg), reservas: vReservas, pedidos: vPedidos, notificacoes: vNotificacoes, config: vConfig }[rota] || vAnuncios)();
   atualizarBadgeNotif();
@@ -387,6 +389,51 @@ function arrastarParaFechar(g, trilho) {
   trilho.addEventListener('touchend', soltar);
   trilho.addEventListener('touchcancel', soltar);
 }
+// Dentro de um anúncio, deslizar da esquerda pra direita volta (como o gesto
+// de voltar do iPhone, que o app instalado não tem). A tela acompanha o dedo;
+// soltou depois de ~90 px (ou num puxão rápido) volta, senão fica. Não vale
+// começando no carrossel de fotos (lá o deslize troca de foto) nem com a foto
+// em tela cheia aberta.
+(function deslizarParaVoltar() {
+  let x0 = 0, y0 = 0, t0 = 0, modo = null, dx = 0;
+  tela.addEventListener('touchstart', (e) => {
+    modo = 'nada';
+    if (!tela.classList.contains('tela-anuncio') || e.touches.length !== 1) return;
+    if (document.getElementById('galeria') || e.target.closest('.fotos')) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); modo = null; dx = 0;
+  }, { passive: true });
+  tela.addEventListener('touchmove', (e) => {
+    if (modo === 'nada' || e.touches.length !== 1) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!modo) {
+      if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+      modo = mx > 0 && mx > Math.abs(my) * 1.5 ? 'voltar' : 'nada';
+      if (modo !== 'voltar') return;
+      tela.style.transition = 'none';
+    }
+    e.preventDefault();
+    dx = Math.max(0, mx);
+    tela.style.transform = `translateX(${dx}px)`;
+    tela.style.opacity = String(Math.max(0.4, 1 - dx / 600));
+  }, { passive: false });
+  const soltar = () => {
+    if (modo !== 'voltar') { modo = null; return; }
+    modo = null;
+    const rapido = dx > 40 && dx / Math.max(1, Date.now() - t0) > 0.6;
+    tela.style.transition = 'transform .18s ease, opacity .18s ease';
+    if (dx > 90 || rapido) {
+      tela.style.transform = `translateX(${window.innerWidth}px)`;
+      tela.style.opacity = '0';
+      setTimeout(() => (history.length > 1 ? history.back() : ir('#/anuncios')), 160);
+    } else {
+      tela.style.transform = '';
+      tela.style.opacity = '';
+    }
+  };
+  tela.addEventListener('touchend', soltar);
+  tela.addEventListener('touchcancel', soltar);
+})();
+
 function fecharGaleria() { document.getElementById('galeria')?.remove(); }
 window.addEventListener('popstate', fecharGaleria);
 window.addEventListener('hashchange', fecharGaleria);
@@ -615,10 +662,17 @@ function btnMinhasCompras(pedidos = []) {
   const id = pedidos.map((p) => /^https:\/\/pedido\.olx\.com\.br\/(\d+)/.exec(p.link || '')?.[1]).find(Boolean) || '';
   return `<a class="btn mini prim" href="https://meus-pedidos.olx.com.br/minhas-compras?orderId=${id}" target="_blank" rel="noopener">📱 Minhas compras no app</a>`;
 }
+// Pedidos cancelados removidos pela 🗑️ (só some deste celular). A chave é o
+// link do pedido (ou título + data, se não tiver link).
+const PED_OCULTOS_KEY = 'olxcel:pedidosOcultos';
+const chavePedido = (p) => p.link || `${p.titulo || ''}|${p.data || ''}`;
+function pedidosOcultos() { try { return JSON.parse(localStorage.getItem(PED_OCULTOS_KEY)) || []; } catch { return []; } }
+
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
-  const pedidos = d?.pedidos || [];
+  const ocultos = pedidosOcultos();
+  const pedidos = (d?.pedidos || []).filter((p) => !ocultos.includes(chavePedido(p)));
   if (!pedidos.length) {
     tela.innerHTML = `<div class="topo-pedidos"><span></span>${btnMinhasCompras()}</div>` + '<div class="vazio">Nenhum pedido ainda.<br><small>No PC, use “Verificar compras” ou “Verificação Completa” na dashboard.</small></div>';
     return;
@@ -630,6 +684,7 @@ function vPedidos() {
       return `<div class="secao">${nome} (${g.length})</div>${g.map((p) => `
         <div class="card pad pedido">
           ${p.foto ? `<img referrerpolicy="no-referrer" src="${esc(p.foto)}" alt="">` : ''}
+          ${p.statusTipo === 'cancelamento' ? `<button type="button" class="lixeira" data-ocultar-ped="${esc(chavePedido(p))}" aria-label="Remover da lista">🗑️</button>` : ''}
           <div class="info">
             <b>${esc(p.titulo || 'Pedido')}</b>
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
@@ -641,6 +696,17 @@ function vPedidos() {
         </div>`).join('')}`;
     }).join('')}`;
   for (const b of document.querySelectorAll('[data-cod]')) b.addEventListener('click', () => copiar(b.dataset.cod, 'Código de rastreio copiado'));
+  for (const b of document.querySelectorAll('[data-ocultar-ped]')) {
+    b.addEventListener('click', () => {
+      const l = pedidosOcultos().filter((k) => k !== b.dataset.ocultarPed);
+      l.push(b.dataset.ocultarPed);
+      localStorage.setItem(PED_OCULTOS_KEY, JSON.stringify(l.slice(-200)));
+      toast('Pedido removido da lista');
+      const rolagem = tela.scrollTop;
+      vPedidos();
+      tela.scrollTop = rolagem;
+    });
+  }
 }
 
 // ─── Configuração (QR do PC) ────────────────────────────────────────────────
