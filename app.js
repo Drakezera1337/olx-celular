@@ -486,7 +486,7 @@ function fecharGaleria() { document.getElementById('galeria')?.remove(); }
 window.addEventListener('popstate', fecharGaleria);
 window.addEventListener('hashchange', fecharGaleria);
 
-async function mandarOrdem(a, tipo) {
+async function mandarOrdem(a, tipo, semConfirmar = false) {
   const confirmacoes = {
     comprar: `Comprar pelo PC?\n\n${a.titulo}\n${fmtPreco(a)}\n\nO PC finaliza a compra e gera o PIX.`,
     forcar: `Forçar a compra pelo PC?\n\nO PC fica tentando até o anúncio liberar.`,
@@ -494,7 +494,7 @@ async function mandarOrdem(a, tipo) {
     nao_forcar: null, // sem confirmação: é só "não"
     cancelar_reserva: `Cancelar a reserva?\n\n${a.titulo}\n\nA aba de pagamento é fechada no PC e o Pix expira sem pagamento.`,
   };
-  if (confirmacoes[tipo] && !confirm(confirmacoes[tipo])) return;
+  if (!semConfirmar && confirmacoes[tipo] && !confirm(confirmacoes[tipo])) return;
   guardarOrdem(a.id, 'local-' + Date.now(), tipo); // mostra "Enviando…" já
   desenharStatusOrdem(a);
   try {
@@ -566,9 +566,16 @@ function vReservas() {
   // aparecem como reserva, com o selo "🎯 Automática".
   const auto = d?.autoCompras || [];
   const autoIds = new Set(auto.map((x) => String(x.listId)));
+  // Reservados por outra pessoa esperando "forçar compra?" (qualquer origem)
+  const reservados = (d?.reservados || []).slice().sort((x, y) => (y.ts || 0) - (x.ts || 0));
+  const reservadosIds = new Set(reservados.map((x) => String(x.listId)));
+  const decidindo = (listId) => {
+    const o = ordens()[listId];
+    return o && ['forcar', 'nao_forcar'].includes(o.tipo) && Date.now() - o.ts < 2 * 60 * 1000 ? o.tipo : null;
+  };
   const ocultas = autoOcultas();
   const autoAndamento = auto
-    .filter((x) => !ocultas.includes(chaveAuto(x)))
+    .filter((x) => !ocultas.includes(chaveAuto(x)) && !reservadosIds.has(String(x.listId)))
     .filter((x) => !reservas.some((r) => String(r.listId) === String(x.listId)) && /^(comprando|falhou|cancelada)/.test(x.status || ''))
     .sort((x, y) => (y.ts || 0) - (x.ts || 0));
   const statusAuto = (s) => /^comprando/.test(s) ? '🔄 Comprando no PC…'
@@ -577,6 +584,21 @@ function vReservas() {
   const desenhar = () => {
     tela.innerHTML = `
       ${blocoAutoCompra(d)}
+      ${reservados.length ? `<div class="secao">🔒 Reservado por outra pessoa</div>${reservados.map((r, i) => {
+        const dec = decidindo(String(r.listId));
+        return `<div class="card pad reservado-outro">
+          <div class="det-titulo pequeno">${esc(r.titulo || 'Anúncio')}${r.automatica ? ' <span class="selo verde">🎯 Automática</span>' : ''}</div>
+          <div class="sub">${esc(r.preco || '')}${r.preco ? ' · ' : ''}${relativo(r.ts || 0)}</div>
+          <div class="st">🔒 Este anúncio está reservado por outra pessoa.</div>
+          ${dec ? `<div class="sub">${dec === 'forcar' ? '⏳ Iniciando o forçar compra no PC…' : '⏳ Avisando o PC…'}</div>` : `
+          <div class="pergunta">Deseja forçar compra?</div>
+          <div class="decisao">
+            <button type="button" class="btn prim" data-res-sim="${i}">⚡ Sim</button>
+            <button type="button" class="btn perigo" data-res-nao="${i}">✋ Não</button>
+          </div>`}
+          ${r.link ? `<a class="sub link-anuncio" href="${esc(r.link)}" target="_blank" rel="noopener">Ver anúncio</a>` : ''}
+        </div>`;
+      }).join('')}` : ''}
       ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas</div>${autoAndamento.map((x) => `
         <a class="card pad auto-compra" href="#/anuncio/${encodeURIComponent(x.listId)}">
           <div class="info">
@@ -586,7 +608,7 @@ function vReservas() {
           </div>
           ${/^comprando/.test(x.status || '') ? '' : `<button type="button" class="lixeira" data-ocultar="${esc(chaveAuto(x))}" aria-label="Remover da lista">🗑️</button>`}
         </a>`).join('')}` : ''}
-      ${!reservas.length && !forcando.length && !autoAndamento.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
+      ${!reservas.length && !forcando.length && !autoAndamento.length && !reservados.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
       ${reservas.length && autoAndamento.length ? '<div class="secao">⏱ Aguardando pagamento</div>' : ''}
       ${reservas.map((r, i) => {
         const resta = (r.expiraEm || 0) - Date.now();
@@ -606,6 +628,18 @@ function vReservas() {
       ${forcando.length ? `<div class="secao">⚡ Forçando compra no PC</div>${forcando.map((f) => `
         <div class="card pad"><b>${esc(f.titulo || f.listId)}</b><div class="sub">${esc(f.preco || '')} · tentativa ${f.tentativa || 0}</div></div>`).join('')}` : ''}`;
     ligarBotoesAutoCompra(desenhar);
+    for (const [attr, tipo] of [['data-res-sim', 'forcar'], ['data-res-nao', 'nao_forcar']]) {
+      for (const b of document.querySelectorAll(`[${attr}]`)) {
+        b.addEventListener('click', async () => {
+          const r = reservados[+b.getAttribute(attr)];
+          const caixa = b.closest('.decisao');
+          caixa.previousElementSibling?.remove(); // "Deseja forçar compra?"
+          caixa.outerHTML = `<div class="sub">${tipo === 'forcar' ? '⏳ Iniciando o forçar compra no PC…' : '⏳ Avisando o PC…'}</div>`;
+          await mandarOrdem({ id: r.listId, titulo: r.titulo || 'Anúncio', precoRaw: r.preco, link: r.link }, tipo, true);
+          vReservas();
+        });
+      }
+    }
     for (const b of document.querySelectorAll('[data-ocultar]')) {
       b.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation(); // o card é um link pro anúncio
