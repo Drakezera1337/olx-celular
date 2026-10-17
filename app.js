@@ -269,6 +269,7 @@ const STATUS = {
   parado: ['⏹', 'Forçar compra parado.'],
   reserva_cancelada: ['✕', 'Reserva cancelada — a aba de pagamento foi fechada no PC.'],
   nao_forcado: ['✋', 'Não vai forçar a compra.'],
+  banido: ['🔨', 'Conta banida.'],
 };
 
 function vAnuncio(id) {
@@ -293,16 +294,19 @@ function vAnuncio(id) {
       <div class="sub dica">“Comprar no app da OLX” abre o anúncio direto no app da OLX deste celular (conta logada nele) — é só tocar em Comprar lá. “Comprar pelo PC” faz a Compra Rápida na extensão (Expressa + Pix) com a conta logada no PC${d.pc?.conta ? ` (<b>${esc(d.pc.conta)}</b>)` : ''}.</div>
     </div>
     <div class="card pad">
-      <b>Vendedor</b>
+      <b>Vendedor</b>${a.vendedorNome ? ` <span class="sub">· ${esc(a.vendedorNome)}</span>` : ''}
       <div class="sub">${esc(a.tempoOlx || '—')}${a.validada ? ' · ✔ conta verificada' : ''}${a.vendas ? ` · ${a.vendas} venda(s)` : ''}${a.avaliacoes ? ` · ${a.avaliacoes} avaliação(ões)` : ''}</div>
       ${a.desc ? `<b style="display:block;margin-top:10px">Descrição</b><div class="desc">${esc(limparTexto(a.desc))}</div>` : ''}
       <div class="acoes">
         <a class="btn" href="${esc(a.link)}" target="_blank" rel="noopener">Ver na OLX</a>
         <a class="btn" href="${chatUrl(a.id)}" target="_blank" rel="noopener">💬 Chat</a>
+        <button type="button" class="btn perigo" id="banirPc">🔨 Banir</button>
       </div>
+      <div id="statusBan"></div>
     </div>`;
   for (const img of document.querySelectorAll('.fotos img[data-foto]')) img.addEventListener('click', () => abrirGaleria(a.fotos, +img.dataset.foto));
   $('#comprarPc').addEventListener('click', () => mandarOrdem(a, 'comprar'));
+  $('#banirPc').addEventListener('click', () => mandarOrdem(a, 'banir'));
   desenharStatusOrdem(a);
   timerTela = setInterval(() => desenharStatusOrdem(a), 1000);
 }
@@ -501,13 +505,19 @@ async function mandarOrdem(a, tipo, semConfirmar = false) {
     forcar: `Forçar a compra pelo PC?\n\nO PC fica tentando até o anúncio liberar.`,
     parar_forcar: 'Parar o forçar compra no PC?',
     nao_forcar: null, // sem confirmação: é só "não"
+    banir: `Banir a conta${a.vendedorNome ? ` "${a.vendedorNome}"` : ' do vendedor'}?
+
+Os anúncios dessa conta somem da lista (no PC e aqui) e a compra automática não compra mais dela.
+
+Dá pra desbanir na dashboard do PC (⚙️ → Contas banidas).`,
     cancelar_reserva: `Cancelar a reserva?\n\n${a.titulo}\n\nA aba de pagamento é fechada no PC e o Pix expira sem pagamento.`,
   };
   if (!semConfirmar && confirmacoes[tipo] && !confirm(confirmacoes[tipo])) return;
   guardarOrdem(a.id, 'local-' + Date.now(), tipo); // mostra "Enviando…" já
   desenharStatusOrdem(a);
   try {
-    const id = await Sync.enviarOrdem({ tipo, listId: a.id, titulo: a.titulo, preco: fmtPreco(a), link: a.link });
+    const id = await Sync.enviarOrdem({ tipo, listId: a.id, titulo: a.titulo, preco: fmtPreco(a), link: a.link,
+      ...(tipo === 'banir' ? { vendedorId: a.vendedorId || '', vendedorNome: a.vendedorNome || '' } : {}) });
     guardarOrdem(a.id, id, tipo);
     toast('Enviado ao PC');
   } catch (e) {
@@ -518,10 +528,13 @@ async function mandarOrdem(a, tipo, semConfirmar = false) {
 }
 
 function desenharStatusOrdem(a) {
-  const box = $('#statusOrdem');
-  if (!box) return;
-  const d = Sync.dados();
   const o = ordens()[a.id];
+  const ehBan = o?.tipo === 'banir';
+  const box = $(ehBan ? '#statusBan' : '#statusOrdem');
+  if (!box) return;
+  const outro = $(ehBan ? '#statusOrdem' : '#statusBan');
+  if (outro && outro.innerHTML) { outro.innerHTML = ''; outro.dataset.html = ''; }
+  const d = Sync.dados();
   const reserva = (d?.reservas || []).find((r) => String(r.listId) === String(a.id));
   const forcando = (d?.forcando || []).find((f) => String(f.listId) === String(a.id));
   let resp = o && !o.id.startsWith('local-') ? d?.respostas?.[o.id] : null;
