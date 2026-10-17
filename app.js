@@ -2,6 +2,14 @@
 // compra direto no celular ("Comprar aqui") ou feita pelo PC ("Comprar pelo PC").
 const $ = (s, el = document) => el.querySelector(s);
 const tela = $('#tela');
+// Texto que vem da OLX com <br> (às vezes escapado como &lt;br&gt;) e outras
+// tags: vira quebra de linha / texto puro. Anúncios guardados antes da
+// extensão limpar isso também ficam certos.
+const limparTexto = (s, quebras = true) => String(s ?? '')
+  .replace(/&lt;br\s*\/?&gt;|<br\s*\/?>/gi, quebras ? '\n' : ' ')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+  .replace(/\n{3,}/g, '\n\n').replace(quebras ? /[ \t]{2,}/g : /\s{2,}/g, ' ').trim();
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const REGIONAIS = ['campos', 'sfitab', 'sjb', 'macae'];
 const FILTROS = [
@@ -231,7 +239,7 @@ function vAnuncios() {
       <a class="anuncio" href="#/anuncio/${encodeURIComponent(a.id)}">
         <div class="foto">${a.fotos?.[0] ? imgFoto(a.fotos[0], 'thumbs256x256', 'loading="lazy"') : '<span>📷</span>'}</div>
         <div class="info">
-          <div class="t">${esc(a.titulo)}</div>
+          <div class="t">${esc(limparTexto(a.titulo, false))}</div>
           <div class="preco">${esc(fmtPreco(a))}</div>
           <div class="sub">${esc([a.bairro, a.cidade].filter(Boolean).join(', ') || '—')} · ${relativo((a.ts || 0) * 1000)}</div>
           <div class="selos">${selos(a)}</div>
@@ -271,7 +279,7 @@ function vAnuncio(id) {
     <div class="fotos">${(a.fotos?.length ? a.fotos : [null]).map((f, i) => f ? imgFoto(f, 'thumbs1200x900', `data-foto="${i}"`) : '<div class="sem-foto">📷</div>').join('')}</div>
     ${a.fotos?.length > 1 ? `<div class="sub centro">${a.fotos.length} fotos · deslize para o lado · toque para ampliar</div>` : ''}
     <div class="card pad">
-      <div class="det-titulo">${esc(a.titulo)}</div>
+      <div class="det-titulo">${esc(limparTexto(a.titulo, false))}</div>
       <div class="det-preco">${esc(fmtPreco(a))}</div>
       <div class="selos">${selos(a, true)}</div>
       <div class="sub">📍 ${esc([a.bairro, a.cidade].filter(Boolean).join(', ') || '—')}</div>
@@ -286,7 +294,7 @@ function vAnuncio(id) {
     <div class="card pad">
       <b>Vendedor</b>
       <div class="sub">${esc(a.tempoOlx || '—')}${a.validada ? ' · ✔ conta verificada' : ''}${a.vendas ? ` · ${a.vendas} venda(s)` : ''}${a.avaliacoes ? ` · ${a.avaliacoes} avaliação(ões)` : ''}</div>
-      ${a.desc ? `<b style="display:block;margin-top:10px">Descrição</b><div class="desc">${esc(a.desc)}</div>` : ''}
+      ${a.desc ? `<b style="display:block;margin-top:10px">Descrição</b><div class="desc">${esc(limparTexto(a.desc))}</div>` : ''}
       <div class="acoes">
         <a class="btn" href="${esc(a.link)}" target="_blank" rel="noopener">Ver na OLX</a>
         <a class="btn" href="${chatUrl(a.id)}" target="_blank" rel="noopener">💬 Chat</a>
