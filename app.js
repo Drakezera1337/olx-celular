@@ -203,6 +203,7 @@ function selos(a, completo = false) {
   if (Date.now() - (a.ts || 0) * 1000 < 30 * 60 * 1000) s.push('<span class="selo novo">NOVO</span>');
   if (a.golpe) s.push('<span class="selo vermelho">🚨 Golpe?</span>');
   if (a.defeito) s.push('<span class="selo vermelho">⚠️ Defeito</span>');
+  if (a.drift) s.push('<span class="selo amarelo">🕹️ Drift</span>');
   if (a.contaNova) s.push('<span class="selo amarelo">🆕 Conta nova</span>');
   if (a.solicitar) s.push('<span class="selo amarelo">🔒 Solicitar</span>');
   if (a.envio === 'sim') s.push('<span class="selo verde">📦 Faz envio</span>');
