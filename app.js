@@ -582,9 +582,11 @@ function vReservas() {
   const ocultas = autoOcultas();
   const autoAndamento = auto
     .filter((x) => !ocultas.includes(chaveAuto(x)) && !reservadosIds.has(String(x.listId)))
-    .filter((x) => !reservas.some((r) => String(r.listId) === String(x.listId)) && /^(comprando|falhou|cancelada)/.test(x.status || ''))
+    .filter((x) => !reservas.some((r) => String(r.listId) === String(x.listId)) && /^(comprando|forcando|falhou|cancelada)/.test(x.status || ''))
     .sort((x, y) => (y.ts || 0) - (x.ts || 0));
-  const statusAuto = (s) => /^comprando/.test(s) ? '🔄 Comprando no PC…'
+  const forcandoSoltos = forcando.filter((f) => !autoAndamento.some((x) => String(x.listId) === String(f.listId)));
+  const statusAuto = (s, x) => /^comprando/.test(s) ? '🔄 Comprando no PC…'
+    : /^forcando/.test(s) ? '⚡ Forçando compra no PC…' + (x?.tentativa ? ` (tentativa ${x.tentativa})` : '')
     : /^falhou/.test(s) ? '❌ ' + s.replace(/^falhou:\s*/, 'Não deu: ')
     : '⛔ ' + s.replace(/^cancelada:\s*/, 'Cancelada: ');
   const desenhar = () => {
@@ -605,14 +607,14 @@ function vReservas() {
           ${r.link ? `<a class="sub link-anuncio" href="${esc(r.link)}" target="_blank" rel="noopener">Ver anúncio</a>` : ''}
         </div>`;
       }).join('')}` : ''}
-      ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas</div>${autoAndamento.map((x) => `
+      ${autoAndamento.length ? `<div class="secao">🎯 Compras automáticas e forçar compra</div>${autoAndamento.map((x) => `
         <a class="card pad auto-compra" href="#/anuncio/${encodeURIComponent(x.listId)}">
           <div class="info">
-            <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}</div>
+            <div class="det-titulo pequeno">${esc(x.titulo || 'Anúncio')}${x.origem === 'forcar' ? ' <span class="selo amarelo">⚡ Forçar compra</span>' : ''}</div>
             <div class="sub">${esc([String(x.console || '').toUpperCase(), x.preco].filter(Boolean).join(' · '))} · ${relativo(x.ts || 0)}</div>
-            <div class="st ${/^comprando/.test(x.status) ? 'andando' : 'parou'}">${esc(statusAuto(x.status || ''))}</div>
+            <div class="st ${/^(comprando|forcando)/.test(x.status) ? 'andando' : 'parou'}">${esc(statusAuto(x.status || '', x))}</div>
           </div>
-          ${/^comprando/.test(x.status || '') ? '' : `<button type="button" class="lixeira" data-ocultar="${esc(chaveAuto(x))}" aria-label="Remover da lista">🗑️</button>`}
+          ${/^(comprando|forcando)/.test(x.status || '') ? '' : `<button type="button" class="lixeira" data-ocultar="${esc(chaveAuto(x))}" aria-label="Remover da lista">🗑️</button>`}
         </a>`).join('')}` : ''}
       ${!reservas.length && !forcando.length && !autoAndamento.length && !reservados.length ? '<div class="vazio">Nenhuma reserva aguardando pagamento.</div>' : ''}
       ${reservas.length && autoAndamento.length ? '<div class="secao">⏱ Aguardando pagamento</div>' : ''}
@@ -631,7 +633,7 @@ function vReservas() {
           </div>
         </div>`;
       }).join('')}
-      ${forcando.length ? `<div class="secao">⚡ Forçando compra no PC</div>${forcando.map((f) => `
+      ${forcandoSoltos.length ? `<div class="secao">⚡ Forçando compra no PC</div>${forcandoSoltos.map((f) => `
         <div class="card pad"><b>${esc(f.titulo || f.listId)}</b><div class="sub">${esc(f.preco || '')} · tentativa ${f.tentativa || 0}</div></div>`).join('')}` : ''}`;
     ligarBotoesAutoCompra(desenhar);
     for (const [attr, tipo] of [['data-res-sim', 'forcar'], ['data-res-nao', 'nao_forcar']]) {
