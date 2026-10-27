@@ -806,6 +806,14 @@ const reais = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
 // Cancelado com o estorno ainda por vir: a OLX mostra "Cancelamento em andamento"
 // e só troca para "Pedido cancelado" quando o dinheiro já voltou
 const cancelEmAndamento = (p) => p.statusTipo === 'cancelamento' && !/pedido cancelado/i.test(p.status || '');
+// Chat do anúncio do pedido (preparando, em trânsito e cancelamento em andamento).
+// O número do pedido termina com o listId do anúncio, igual na dashboard.
+function chatDoPedido(p) {
+  if (!(p.statusTipo === 'preparacao' || p.statusTipo === 'transito' || cancelEmAndamento(p))) return '';
+  const id = /pedido\.olx\.com\.br\/(\d+)/.exec(p.link || '')?.[1] || '';
+  const listId = p.listId || (id.length > 10 ? id.slice(-10) : '');
+  return listId ? `https://chat.olx.com.br/?list-id=${listId}` : '';
+}
 // Mesmas somas da dashboard: preparo, trânsito e estorno ainda por vir
 function somasPedidos(pedidos) {
   const soma = (f) => pedidos.filter(f).reduce((s, p) => s + valorReais(p.precoTotal || p.preco), 0);
@@ -896,6 +904,7 @@ function vPedidos() {
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
             ${p.codigoRastreio ? `<button type="button" class="btn mini" data-cod="${esc(p.codigoRastreio)}">📋 ${esc(p.codigoRastreio)}</button>` : ''}
             ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">Ver pedido</a>` : ''}
+            ${chatDoPedido(p) ? `<a class="btn mini" href="${esc(chatDoPedido(p))}" target="_blank" rel="noopener">💬 Chat</a>` : ''}
           </div>
         </div>`).join('')}`;
     }).join('')}`;
