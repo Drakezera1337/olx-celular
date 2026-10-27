@@ -238,3 +238,4 @@ html, body { touch-action: pan-x pan-y; }
 .resumo-pedidos b { color: var(--accent); }
 .secao-soma { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .secao-soma .soma { color: var(--accent); white-space: nowrap; text-transform: none; letter-spacing: 0; }
+.vc-contas { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }

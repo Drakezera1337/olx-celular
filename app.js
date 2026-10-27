@@ -816,13 +816,58 @@ function somasPedidos(pedidos) {
   };
 }
 
+// ─── Verificação Completa no PC (ordem "verificacao_completa") ──────────────
+// Mesmo que o botão da dashboard: o PC entra em cada conta cadastrada e junta
+// os pedidos. Enquanto roda, mostra o progresso por conta e o botão "Parar".
+const VC_KEY = 'olxcel:vcOrdem'; // { id, parar, ts } — última ordem enviada
+const VC_ICONE = { ok: '✅', verificando: '🔄', erro: '❌', pendente: '⏳' };
+function blocoVerificacao(d) {
+  if (!d?.vc) return ''; // extensão do PC ainda sem essa função
+  const vc = d.vc;
+  let pend = null;
+  try { pend = JSON.parse(localStorage.getItem(VC_KEY)); } catch { pend = null; }
+  // Esperando o PC: pediu há menos de 2 min e o estado ainda não mudou
+  const esperando = pend && Date.now() - pend.ts < 2 * 60 * 1000 && (pend.parar ? vc.rodando : !vc.rodando) && !d.respostas?.[pend.id];
+  const contas = vc.rodando && vc.contas.length
+    ? `<div class="sub vc-contas">${vc.contas.map((c) => `<span>${esc(c.nome)} ${VC_ICONE[c.status] || '⏳'}${c.status === 'ok' ? ` ${c.qtd}` : ''}</span>`).join('')}</div>` : '';
+  const txt = esperando ? (pend.parar ? '⏳ Parando no PC…' : '⏳ Pedido enviado — esperando o PC…')
+    : vc.rodando ? (vc.voltando ? `↩ Voltando para a conta ${esc(vc.voltando)}…` : 'Rodando no PC — entra em cada conta e junta os pedidos')
+    : vc.fim ? `${vc.fim.parado ? '⏹ Interrompida' : '✅ Última'} ${relativo(vc.fim.ts)} — ${vc.fim.total} pedido(s) em ${vc.fim.ok} conta(s)`
+    : 'Entra em cada conta do PC e junta os pedidos';
+  return `<div class="card pad auto-toggle ${vc.rodando ? 'on' : ''}">
+    <div class="info"><b>🔁 Verificação Completa</b><div class="sub">${txt}</div>${contas}</div>
+    <button type="button" class="btn ${vc.rodando ? 'perigo' : 'prim'}" data-vc="${vc.rodando ? 'parar' : 'iniciar'}"${esperando ? ' disabled' : ''}>${vc.rodando ? 'Parar' : 'Verificar'}</button>
+  </div>`;
+}
+function ligarBotaoVerificacao() {
+  const b = document.querySelector('[data-vc]');
+  if (!b) return;
+  b.addEventListener('click', async () => {
+    const parar = b.dataset.vc === 'parar';
+    if (!confirm(parar ? 'Parar a Verificação Completa?\n\nO PC mantém só as contas já verificadas.'
+      : 'Fazer a Verificação Completa no PC?\n\nO PC entra em cada conta cadastrada para ler os pedidos e no fim volta para a conta atual. Durante a troca de contas a compra automática fica parada.')) return;
+    localStorage.setItem(VC_KEY, JSON.stringify({ id: 'local', parar, ts: Date.now() }));
+    vPedidos();
+    try {
+      const id = await Sync.enviarOrdem({ tipo: 'verificacao_completa', parar });
+      localStorage.setItem(VC_KEY, JSON.stringify({ id, parar, ts: Date.now() }));
+      toast(parar ? 'Pedido enviado: parar' : 'Pedido enviado: verificação completa');
+    } catch (e) {
+      localStorage.removeItem(VC_KEY);
+      toast('Falhou: ' + e.message);
+    }
+    vPedidos();
+  });
+}
+
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
   const ocultos = pedidosOcultos();
   const pedidos = (d?.pedidos || []).filter((p) => !ocultos.includes(chavePedido(p)));
   if (!pedidos.length) {
-    tela.innerHTML = `<div class="topo-pedidos"><span></span>${btnMinhasCompras()}</div>` + '<div class="vazio">Nenhum pedido ainda.<br><small>No PC, use “Verificar compras” ou “Verificação Completa” na dashboard.</small></div>';
+    tela.innerHTML = `<div class="topo-pedidos"><span></span>${btnMinhasCompras()}</div>${blocoVerificacao(d)}` + '<div class="vazio">Nenhum pedido ainda.<br><small>Toque em “Verificar” acima, ou no PC use “Verificar compras” na dashboard.</small></div>';
+    ligarBotaoVerificacao();
     return;
   }
   // Somas sobre todos os pedidos (esconder um cancelado da lista não muda o dinheiro)
@@ -834,6 +879,7 @@ function vPedidos() {
       ${somas.cancelamento ? `<div><span class="sub">↩ A voltar (cancelamentos em andamento)</span> <b>${reais(somas.cancelamento)}</b></div>` : ''}
     </div>` : '';
   tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
+    ${blocoVerificacao(d)}
     ${resumo}
     ${GRUPOS.map(([tipo, nome]) => {
       const g = pedidos.filter((p) => p.statusTipo === tipo);
@@ -853,6 +899,7 @@ function vPedidos() {
           </div>
         </div>`).join('')}`;
     }).join('')}`;
+  ligarBotaoVerificacao();
   for (const b of document.querySelectorAll('[data-cod]')) b.addEventListener('click', () => copiar(b.dataset.cod, 'Código de rastreio copiado'));
   for (const b of document.querySelectorAll('[data-ocultar-ped]')) {
     b.addEventListener('click', () => {
