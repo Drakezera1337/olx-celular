@@ -230,3 +230,6 @@ details summary { cursor: pointer; font-weight: 600; }
    dos eventos "gesture*" no app.js cobrem ele. Nas fotos em tela cheia o zoom
    é do próprio app (dois toques ou pinça, ver pincaNaFoto). */
 html, body { touch-action: pan-x pan-y; }
+/* Reserva: resposta do vendedor + renovações do PIX */
+.pilulas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.resposta-vendedor { margin-top: 6px; font-style: italic; }

@@ -96,6 +96,22 @@ function cronometro(ms) {
   const t = Math.max(0, Math.floor(ms / 1000));
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
+// Reserva: resposta do vendedor ao "Faz envio pela OLX?" (classificada no PC) e
+// renovações do PIX feitas/máximo — as mesmas pílulas da dashboard
+function pilulasReserva(r) {
+  const p = [];
+  const s = r.saudacao;
+  if (s) {
+    if (s.status === 'sem-saudacao') p.push('<span class="selo">💬 Saudação não enviada</span>');
+    else if (s.status === 'aguardando') p.push('<span class="selo">💬 Sem resposta</span>');
+    else if (s.classe === 'positiva') p.push('<span class="selo verde">✅ Faz envio</span>');
+    else if (s.classe === 'negativa') p.push('<span class="selo vermelho">⛔ Não faz envio</span>');
+    else p.push('<span class="selo amarelo">💬 Respondeu</span>');
+  }
+  if (r.renov) p.push(`<span class="selo ${r.renov.feitas >= r.renov.max ? 'vermelho' : 'azul'}">🔄 ${Math.min(r.renov.feitas, r.renov.max)}/${r.renov.max} renovações</span>`);
+  const resposta = s && s.status === 'respondida' && s.resposta ? `<div class="sub resposta-vendedor">“${esc(s.resposta)}”</div>` : '';
+  return (p.length ? `<div class="pilulas">${p.join('')}</div>` : '') + resposta;
+}
 // Fotos da OLX: o PC manda a original (/images/…, ~110 KB). A lista usa a
 // miniatura (/thumbs256x256, ~10 KB) e o carrossel a média (/thumbs1200x900, ~40-70 KB) —
 // com 200 originais de uma vez o servidor de imagens da OLX recusava parte
@@ -647,6 +663,7 @@ function vReservas() {
           ${contaOk(r.conta) ? `<div class="conta">👤 ${esc(r.conta)}</div>` : ''}
           <div class="sub">${esc(r.preco || '')}${r.total ? ` · total <b>${esc(r.total)}</b>` : ''}</div>
           <div class="cron ${resta <= 0 ? 'expirado' : ''}" data-lid="${esc(r.listId)}">⏱ ${resta > 0 ? cronometro(resta) : (r.renovacaoFalhou ? 'Não renovou' : 'Expirado')}</div>
+          ${pilulasReserva(r)}
           ${r.suspeitaGolpe ? `<div class="aviso erro">⛔ Atenção: anúncio ${esc(r.motivoSuspeita || 'suspeito')} — confira antes de pagar!</div>` : ''}
           <div class="acoes">
             ${r.pix ? `<button type="button" class="btn prim" data-pix="${i}">📋 Copiar Pix</button>` : '<span class="sub">Pix ainda não lido</span>'}
