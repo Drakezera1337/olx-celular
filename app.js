@@ -822,8 +822,8 @@ function somasPedidos(pedidos) {
 const VC_KEY = 'olxcel:vcOrdem'; // { id, parar, ts } — última ordem enviada
 const VC_ICONE = { ok: '✅', verificando: '🔄', erro: '❌', pendente: '⏳' };
 function blocoVerificacao(d) {
-  if (!d?.vc) return ''; // extensão do PC ainda sem essa função
-  const vc = d.vc;
+  // Sem d.vc: o PC ainda não publicou o progresso (extensão não recarregada) — mostra o botão mesmo assim
+  const vc = d?.vc || { rodando: false, voltando: '', contas: [], fim: null };
   let pend = null;
   try { pend = JSON.parse(localStorage.getItem(VC_KEY)); } catch { pend = null; }
   // Esperando o PC: pediu há menos de 2 min e o estado ainda não mudou
