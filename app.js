@@ -796,6 +796,26 @@ const PED_OCULTOS_KEY = 'olxcel:pedidosOcultos';
 const chavePedido = (p) => p.link || `${p.titulo || ''}|${p.data || ''}`;
 function pedidosOcultos() { try { return JSON.parse(localStorage.getItem(PED_OCULTOS_KEY)) || []; } catch { return []; } }
 
+// "R$ 1853,39" → 1853.39 (valor total pago no pedido, com frete e taxa da OLX)
+function valorReais(t) {
+  let s = String(t || '').replace(/[^\d,.]/g, '');
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  return parseFloat(s) || 0;
+}
+const reais = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+// Cancelado com o estorno ainda por vir: a OLX mostra "Cancelamento em andamento"
+// e só troca para "Pedido cancelado" quando o dinheiro já voltou
+const cancelEmAndamento = (p) => p.statusTipo === 'cancelamento' && !/pedido cancelado/i.test(p.status || '');
+// Mesmas somas da dashboard: preparo, trânsito e estorno ainda por vir
+function somasPedidos(pedidos) {
+  const soma = (f) => pedidos.filter(f).reduce((s, p) => s + valorReais(p.precoTotal || p.preco), 0);
+  return {
+    preparacao: soma((p) => p.statusTipo === 'preparacao'),
+    transito: soma((p) => p.statusTipo === 'transito'),
+    cancelamento: soma(cancelEmAndamento),
+  };
+}
+
 function vPedidos() {
   titulo('Pedidos');
   const d = Sync.dados();
@@ -805,11 +825,21 @@ function vPedidos() {
     tela.innerHTML = `<div class="topo-pedidos"><span></span>${btnMinhasCompras()}</div>` + '<div class="vazio">Nenhum pedido ainda.<br><small>No PC, use “Verificar compras” ou “Verificação Completa” na dashboard.</small></div>';
     return;
   }
+  // Somas sobre todos os pedidos (esconder um cancelado da lista não muda o dinheiro)
+  const somas = somasPedidos(d.pedidos || []);
+  const investido = somas.preparacao + somas.transito;
+  const resumo = (investido || somas.cancelamento) ? `<div class="card pad resumo-pedidos">
+      ${investido ? `<div><span class="sub">💰 Em mercadoria</span> <b>${reais(investido)}</b></div>` : ''}
+      ${somas.preparacao && somas.transito ? `<div class="sub">📦 ${reais(somas.preparacao)} em preparação · 🚚 ${reais(somas.transito)} chegando</div>` : ''}
+      ${somas.cancelamento ? `<div><span class="sub">↩ A voltar (cancelamentos em andamento)</span> <b>${reais(somas.cancelamento)}</b></div>` : ''}
+    </div>` : '';
   tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
+    ${resumo}
     ${GRUPOS.map(([tipo, nome]) => {
       const g = pedidos.filter((p) => p.statusTipo === tipo);
       if (!g.length) return '';
-      return `<div class="secao">${nome} (${g.length})</div>${g.map((p) => `
+      const s = somas[tipo];
+      return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p) => `
         <div class="card pad pedido">
           ${p.foto ? `<img referrerpolicy="no-referrer" src="${esc(p.foto)}" alt="">` : ''}
           ${p.statusTipo === 'cancelamento' ? `<button type="button" class="lixeira" data-ocultar-ped="${esc(chavePedido(p))}" aria-label="Remover da lista">🗑️</button>` : ''}
