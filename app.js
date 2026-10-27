@@ -806,10 +806,10 @@ const reais = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
 // Cancelado com o estorno ainda por vir: a OLX mostra "Cancelamento em andamento"
 // e só troca para "Pedido cancelado" quando o dinheiro já voltou
 const cancelEmAndamento = (p) => p.statusTipo === 'cancelamento' && !/pedido cancelado/i.test(p.status || '');
-// Chat do anúncio do pedido (preparando, em trânsito e cancelamento em andamento).
+// Chat do anúncio do pedido (preparando, em trânsito e cancelamento, em andamento ou concluído).
 // O número do pedido termina com o listId do anúncio, igual na dashboard.
 function chatDoPedido(p) {
-  if (!(p.statusTipo === 'preparacao' || p.statusTipo === 'transito' || cancelEmAndamento(p))) return '';
+  if (!['preparacao', 'transito', 'cancelamento'].includes(p.statusTipo)) return '';
   const id = /pedido\.olx\.com\.br\/(\d+)/.exec(p.link || '')?.[1] || '';
   const listId = p.listId || (id.length > 10 ? id.slice(-10) : '');
   return listId ? `https://chat.olx.com.br/?list-id=${listId}` : '';
