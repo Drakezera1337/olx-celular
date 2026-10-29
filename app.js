@@ -726,9 +726,11 @@ function vReservas() {
 }
 
 // Compras automáticas removidas pela 🗑️ (só some deste celular). A chave leva o
-// horário: se o PC tentar o mesmo anúncio de novo, o card novo aparece.
+// horário: se o PC tentar o mesmo anúncio de novo, o card novo aparece. Usa a
+// chave fixa do PC — o "ts" publicado é corrigido pelo relógio do GitHub e muda
+// uns milissegundos a cada publicação (o card apagado voltava toda hora).
 const OCULTAS_KEY = 'olxcel:autoOcultas';
-const chaveAuto = (x) => `${x.listId}|${x.ts || 0}`;
+const chaveAuto = (x) => x.chave || `${x.listId}|${x.ts || 0}`;
 function autoOcultas() { try { return JSON.parse(localStorage.getItem(OCULTAS_KEY)) || []; } catch { return []; } }
 function ocultarAuto(chave) {
   const l = autoOcultas().filter((k) => k !== chave);
