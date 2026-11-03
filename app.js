@@ -904,6 +904,12 @@ function vPedidos() {
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            ${p.statusTipo === 'transito' && p.rastreio && p.rastreio.status ? `<div class="rastreio">
+              <b>🚚 ${esc(p.rastreio.status)}</b>
+              ${p.rastreio.local ? `<div>${esc(p.rastreio.local)}</div>` : ''}
+              ${p.rastreio.data ? `<div>🕒 ${esc(p.rastreio.data)}</div>` : ''}
+              ${p.rastreio.previsao ? `<div>📅 Previsão: ${esc(p.rastreio.previsao)}</div>` : ''}
+            </div>` : ''}
             ${p.codigoRastreio ? `<button type="button" class="btn mini" data-cod="${esc(p.codigoRastreio)}">📋 ${esc(p.codigoRastreio)}</button>` : ''}
             ${p.link ? `<a class="btn mini" href="${esc(p.link)}" target="_blank" rel="noopener">Ver pedido</a>` : ''}
             ${chatDoPedido(p) ? `<a class="btn mini" href="${esc(chatDoPedido(p))}" target="_blank" rel="noopener">💬 Chat</a>` : ''}
