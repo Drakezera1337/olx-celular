@@ -784,7 +784,14 @@ function vNotificacoes() {
 }
 
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
-const GRUPOS = [['transito', '🚚 Em trânsito'], ['preparacao', '📦 Em preparação'], ['cancelamento', '❌ Em cancelamento'], ['entregue', '✅ Entregues']];
+// Cancelamento em dois grupos: os em andamento (dinheiro que ainda vai voltar) antes dos já cancelados
+const GRUPOS = [
+  ['transito', '🚚 Em trânsito', (p) => p.statusTipo === 'transito'],
+  ['preparacao', '📦 Em preparação', (p) => p.statusTipo === 'preparacao'],
+  ['cancelamento', '⏳ Em cancelamento', (p) => cancelEmAndamento(p)],
+  ['cancelado', '❌ Cancelados', (p) => p.statusTipo === 'cancelamento' && !cancelEmAndamento(p)],
+  ['entregue', '✅ Entregues', (p) => p.statusTipo === 'entregue'],
+];
 // Abre o app da OLX direto em "Minhas compras" no iPhone (formato testado em
 // out/2026). Não existe link público que abra um pedido específico no app.
 // Vai com o número de um pedido real (o primeiro da lista), igual ao link testado.
@@ -891,8 +898,8 @@ function vPedidos() {
   tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
     ${blocoVerificacao(d)}
     ${resumo}
-    ${GRUPOS.map(([tipo, nome]) => {
-      const g = pedidos.filter((p) => p.statusTipo === tipo);
+    ${GRUPOS.map(([tipo, nome, filtro]) => {
+      const g = pedidos.filter(filtro);
       if (!g.length) return '';
       const s = somas[tipo];
       return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p) => `
