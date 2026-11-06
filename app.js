@@ -915,6 +915,8 @@ function vPedidos() {
     ${resumo}
     ${GRUPOS.map(([tipo, nome, filtro]) => {
       const g = pedidos.filter(filtro);
+      // Cancelamentos: na ordem em que foram cancelados (o mais recente primeiro)
+      if (tipo === 'cancelamento' || tipo === 'cancelado') g.sort((a, b) => (b.canceladoEm || b.criadoEm || 0) - (a.canceladoEm || a.criadoEm || 0));
       if (!g.length) return '';
       const s = somas[tipo];
       return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p) => `
@@ -926,6 +928,7 @@ function vPedidos() {
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            ${p.statusTipo === 'cancelamento' && !cancelEmAndamento(p) && p.canceladoEm ? `<div class="sub">❌ Cancelado ${esc(quandoTxt(new Date(p.canceladoEm)))}</div>` : ''}
             ${cancelEmAndamento(p) && previsaoReembolso(p) ? `<div class="reembolso${/já deveria/.test(previsaoReembolso(p)) ? ' atrasado' : ''}">${esc(previsaoReembolso(p))}</div>` : ''}
             ${p.statusTipo === 'transito' && p.rastreio && p.rastreio.status ? `<div class="rastreio">
               <b>🚚 ${esc(p.rastreio.status)}</b>
