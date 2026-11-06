@@ -243,3 +243,7 @@ html, body { touch-action: pan-x pan-y; }
 /* Última atualização dos Correios no pedido em trânsito */
 .rastreio{margin:4px 0;padding:6px 8px;border-radius:8px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);font-size:12px;line-height:1.4;color:var(--muted,#94a3b8);}
 .rastreio b{color:#f59e0b;}
+
+/* Previsão do reembolso nos cancelamentos em andamento (+6 h do Pix) */
+.reembolso{margin:3px 0;font-size:12px;font-weight:700;color:#00e5a0;}
+.reembolso.atrasado{color:#f59e0b;}

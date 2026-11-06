@@ -815,6 +815,17 @@ const reais = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
 // Cancelado com o estorno ainda por vir: a OLX mostra "Cancelamento em andamento"
 // e só troca para "Pedido cancelado" quando o dinheiro já voltou
 const cancelEmAndamento = (p) => p.statusTipo === 'cancelamento' && !/pedido cancelado/i.test(p.status || '');
+// A OLX devolve o dinheiro do cancelamento em ~6 h a partir do Pix (igual à dashboard)
+function previsaoReembolso(p) {
+  if (!p.criadoEm) return '';
+  const prev = new Date(p.criadoEm + 6 * 3600 * 1000);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(prev); dia.setHours(0, 0, 0, 0);
+  const dif = Math.round((dia - hoje) / 864e5);
+  const hora = prev.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const quando = `${dif === 0 ? 'hoje' : dif === 1 ? 'amanhã' : dif === -1 ? 'ontem' : prev.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${hora}`;
+  return prev.getTime() > Date.now() ? `↩ Reembolso previsto: ${quando}` : `↩ Reembolso previsto ${quando} — já deveria ter caído`;
+}
 // Chat do anúncio do pedido (preparando, em trânsito e cancelamento, em andamento ou concluído).
 // O número do pedido termina com o listId do anúncio, igual na dashboard.
 function chatDoPedido(p) {
@@ -911,6 +922,7 @@ function vPedidos() {
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            ${cancelEmAndamento(p) && previsaoReembolso(p) ? `<div class="reembolso${/já deveria/.test(previsaoReembolso(p)) ? ' atrasado' : ''}">${esc(previsaoReembolso(p))}</div>` : ''}
             ${p.statusTipo === 'transito' && p.rastreio && p.rastreio.status ? `<div class="rastreio">
               <b>🚚 ${esc(p.rastreio.status)}</b>
               ${p.rastreio.local ? `<div>${esc(p.rastreio.local)}</div>` : ''}

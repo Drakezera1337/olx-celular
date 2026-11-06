@@ -1,8 +1,8 @@
 // App instalável: guarda os arquivos do site. Os dados ficam no localStorage
 // e a API do GitHub nunca passa pelo cache.
-const CACHE = 'olxcel-v37';
-const ARQUIVOS = ['./', 'index.html', 'styles.css?v=37', 'config.js?v=37', 'cripto.js?v=37',
-  'sync.js?v=37', 'app.js?v=37', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const CACHE = 'olxcel-v38';
+const ARQUIVOS = ['./', 'index.html', 'styles.css?v=38', 'config.js?v=38', 'cripto.js?v=38',
+  'sync.js?v=38', 'app.js?v=38', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
