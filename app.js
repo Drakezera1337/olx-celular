@@ -786,12 +786,30 @@ function vNotificacoes() {
 // ─── Pedidos (Verificar compras / Verificação Completa) ─────────────────────
 // Cancelamento em dois grupos: os em andamento (dinheiro que ainda vai voltar) antes dos já cancelados
 const GRUPOS = [
-  ['transito', '🚚 Em trânsito', (p) => p.statusTipo === 'transito'],
+  // Em trânsito, igual à dashboard: saiu para entrega, depois os que os Correios já
+  // encaminham para São Francisco de Itabapoana, depois o resto
+  ['saiu', '🛵 Saiu para entrega', (p) => p.statusTipo === 'transito' && saiuParaEntrega(p)],
+  ['cidade', '📍 Indo para São Francisco de Itabapoana', (p) => p.statusTipo === 'transito' && !saiuParaEntrega(p) && indoParaCidade(p)],
+  ['transito', '🚚 A caminho', (p) => p.statusTipo === 'transito' && !saiuParaEntrega(p) && !indoParaCidade(p)],
   ['preparacao', '📦 Em preparação', (p) => p.statusTipo === 'preparacao'],
   ['cancelamento', '⏳ Em cancelamento', (p) => cancelEmAndamento(p)],
   ['cancelado', '❌ Cancelados', (p) => p.statusTipo === 'cancelamento' && !cancelEmAndamento(p)],
   ['entregue', '✅ Entregues', (p) => p.statusTipo === 'entregue'],
 ];
+// Saiu para entrega: pelos Correios ou pela etapa atual do pedido na OLX
+function saiuParaEntrega(p) {
+  const rx = /saiu para (a )?entrega|to_be_delivered|out_for_delivery|em rota de entrega/i;
+  return rx.test(p.rastreio?.status || '') || rx.test(p.etapaOlx || '') || rx.test(p.entregaStatusId || '') || rx.test(p.entregaStatusDesc || '');
+}
+// Rastreio dos Correios já encaminhando para São Francisco de Itabapoana
+const indoParaCidade = (p) => /itabapoana/i.test(`${p.rastreio?.local || ''} ${p.rastreio?.status || ''}`);
+// Data "dd/mm/aaaa" do pedido → timestamp (reserva quando falta a hora)
+function diaPedido(p) {
+  const m = /(\d{2})\/(\d{2})\/(\d{4})/.exec(p.data || '');
+  return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0;
+}
+const horaCompra = (p) => p.criadoEm || diaPedido(p);
+const horaEntrega = (p) => p.entregueEm || p.criadoEm || diaPedido(p);
 // Abre o app da OLX direto em "Minhas compras" no iPhone (formato testado em
 // out/2026). Não existe link público que abra um pedido específico no app.
 // Vai com o número de um pedido real (o primeiro da lista), igual ao link testado.
@@ -830,10 +848,10 @@ function previsaoReembolso(p) {
   const cancelou = `Vendedor cancelou ${quandoTxt(new Date(p.canceladoEm))}`;
   return prev.getTime() > Date.now() ? `${cancelou} · ↩ reembolso previsto: ${quandoTxt(prev)}` : `${cancelou} · ↩ reembolso previsto ${quandoTxt(prev)} — já deveria ter caído`;
 }
-// Chat do anúncio do pedido (preparando, em trânsito e cancelamento, em andamento ou concluído).
+// Chat do anúncio do pedido (preparando, em trânsito, entregue e cancelamento, em andamento ou concluído).
 // O número do pedido termina com o listId do anúncio, igual na dashboard.
 function chatDoPedido(p) {
-  if (!['preparacao', 'transito', 'cancelamento'].includes(p.statusTipo)) return '';
+  if (!['preparacao', 'transito', 'cancelamento', 'entregue'].includes(p.statusTipo)) return '';
   const id = /pedido\.olx\.com\.br\/(\d+)/.exec(p.link || '')?.[1] || '';
   const listId = p.listId || (id.length > 10 ? id.slice(-10) : '');
   return listId ? `https://chat.olx.com.br/?list-id=${listId}` : '';
@@ -917,8 +935,13 @@ function vPedidos() {
       const g = pedidos.filter(filtro);
       // Cancelamentos: na ordem em que foram cancelados (o mais recente primeiro)
       if (tipo === 'cancelamento' || tipo === 'cancelado') g.sort((a, b) => (b.canceladoEm || b.criadoEm || 0) - (a.canceladoEm || a.criadoEm || 0));
+      // Em preparação: a compra mais recente no topo; Entregues: o último entregue no topo
+      if (tipo === 'preparacao') g.sort((a, b) => horaCompra(b) - horaCompra(a));
+      if (tipo === 'entregue') g.sort((a, b) => horaEntrega(b) - horaEntrega(a));
       if (!g.length) return '';
-      const s = somas[tipo];
+      // Trânsito sem nenhum separado no topo: título de sempre
+      if (tipo === 'transito' && !pedidos.some((p) => p.statusTipo === 'transito' && (saiuParaEntrega(p) || indoParaCidade(p)))) nome = '🚚 Em trânsito';
+      const s = ['saiu', 'cidade', 'transito'].includes(tipo) ? g.reduce((t, p) => t + valorReais(p.precoTotal || p.preco), 0) : somas[tipo];
       return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p) => `
         <div class="card pad pedido">
           ${p.foto ? `<img referrerpolicy="no-referrer" src="${esc(p.foto)}" alt="">` : ''}
@@ -927,7 +950,8 @@ function vPedidos() {
             <b>${esc(p.titulo || 'Pedido')}</b>
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
-            <div class="sub">${esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            <div class="sub">${p.statusTipo === 'transito' && saiuParaEntrega(p) ? '🛵 Saiu para entrega' : esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            ${p.statusTipo === 'entregue' && p.entregueEm ? `<div class="sub">✅ Entregue ${esc(quandoTxt(new Date(p.entregueEm)))}</div>` : ''}
             ${p.statusTipo === 'cancelamento' && !cancelEmAndamento(p) && p.canceladoEm ? `<div class="sub">❌ Cancelado ${esc(quandoTxt(new Date(p.canceladoEm)))}</div>` : ''}
             ${cancelEmAndamento(p) && previsaoReembolso(p) ? `<div class="reembolso${/já deveria/.test(previsaoReembolso(p)) ? ' atrasado' : ''}">${esc(previsaoReembolso(p))}</div>` : ''}
             ${p.statusTipo === 'transito' && p.rastreio && p.rastreio.status ? `<div class="rastreio">
