@@ -109,7 +109,11 @@ function pilulasReserva(r) {
     else p.push('<span class="selo amarelo">💬 Respondeu</span>');
   }
   if (r.renov) p.push(`<span class="selo ${r.renov.feitas >= r.renov.max ? 'vermelho' : 'azul'}">🔄 ${Math.min(r.renov.feitas, r.renov.max)}/${r.renov.max} renovações</span>`);
-  const resposta = s && s.status === 'respondida' && s.resposta ? `<div class="sub resposta-vendedor">“${esc(s.resposta)}”</div>` : '';
+  let resposta = s && s.status === 'respondida' && s.resposta ? `<div class="sub resposta-vendedor">“${esc(s.resposta)}”</div>` : '';
+  // Seguimento da compra automática: "Está funcionando perfeitamente ?" e o dia do envio
+  const seg = (s && s.seguimento) || {};
+  if (seg.funcionandoPerguntado) resposta += `<div class="sub resposta-vendedor">🔧 Funcionando? ${seg.funcionando ? `“${esc(seg.funcionando)}”` : '<i>sem resposta</i>'}</div>`;
+  if (seg.diaPergunta) resposta += `<div class="sub resposta-vendedor">📦 ${esc(seg.diaPergunta)} ${seg.dia ? `“${esc(seg.dia)}”` : '<i>sem resposta</i>'}</div>`;
   return (p.length ? `<div class="pilulas">${p.join('')}</div>` : '') + resposta;
 }
 // Fotos da OLX: o PC manda a original (/images/…, ~110 KB). A lista usa a
