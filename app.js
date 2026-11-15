@@ -102,7 +102,8 @@ function pilulasReserva(r) {
   const p = [];
   const s = r.saudacao;
   if (s) {
-    if (s.status === 'sem-saudacao') p.push('<span class="selo">💬 Saudação não enviada</span>');
+    if (s.status === 'bloqueado') p.push('<span class="selo vermelho">⛔ Usuário bloqueado pela OLX</span>');
+    else if (s.status === 'sem-saudacao') p.push('<span class="selo">💬 Saudação não enviada</span>');
     else if (s.status === 'aguardando') p.push('<span class="selo">💬 Sem resposta</span>');
     else if (s.classe === 'positiva') p.push('<span class="selo verde">✅ Faz envio</span>');
     else if (s.classe === 'negativa') p.push('<span class="selo vermelho">⛔ Não faz envio</span>');
