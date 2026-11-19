@@ -815,6 +815,14 @@ function diaPedido(p) {
 }
 const horaCompra = (p) => p.criadoEm || diaPedido(p);
 const horaEntrega = (p) => p.entregueEm || p.criadoEm || diaPedido(p);
+const horaPostagem = (p) => p.postadoEm || horaCompra(p);
+function grupoDia(t) {
+  if (!t) return 'Dias atrás';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(t); dia.setHours(0, 0, 0, 0);
+  const dif = Math.round((hoje - dia) / 864e5);
+  return dif <= 0 ? 'Hoje' : dif === 1 ? 'Ontem' : 'Dias atrás';
+}
 // Abre o app da OLX direto em "Minhas compras" no iPhone (formato testado em
 // out/2026). Não existe link público que abra um pedido específico no app.
 // Vai com o número de um pedido real (o primeiro da lista), igual ao link testado.
@@ -943,11 +951,14 @@ function vPedidos() {
       // Em preparação: a compra mais recente no topo; Entregues: o último entregue no topo
       if (tipo === 'preparacao') g.sort((a, b) => horaCompra(b) - horaCompra(a));
       if (tipo === 'entregue') g.sort((a, b) => horaEntrega(b) - horaEntrega(a));
+      // Em trânsito: na ordem em que foram postados (o postado primeiro no topo)
+      if (['saiu', 'cidade', 'transito'].includes(tipo)) g.sort((a, b) => horaPostagem(a) - horaPostagem(b));
       if (!g.length) return '';
       // Trânsito sem nenhum separado no topo: título de sempre
       if (tipo === 'transito' && !pedidos.some((p) => p.statusTipo === 'transito' && (saiuParaEntrega(p) || indoParaCidade(p)))) nome = '🚚 Em trânsito';
       const s = ['saiu', 'cidade', 'transito'].includes(tipo) ? g.reduce((t, p) => t + valorReais(p.precoTotal || p.preco), 0) : somas[tipo];
-      return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p) => `
+      return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p, i) => (tipo === 'entregue' && (i === 0 || grupoDia(horaEntrega(g[i - 1])) !== grupoDia(horaEntrega(p)))
+        ? `<div class="secao">${grupoDia(horaEntrega(p))} (${g.filter((q) => grupoDia(horaEntrega(q)) === grupoDia(horaEntrega(p))).length})</div>` : '') + `
         <div class="card pad pedido">
           ${p.foto ? `<img referrerpolicy="no-referrer" src="${esc(p.foto)}" alt="">` : ''}
           ${p.statusTipo === 'cancelamento' ? `<button type="button" class="lixeira" data-ocultar-ped="${esc(chavePedido(p))}" aria-label="Remover da lista">🗑️</button>` : ''}
@@ -956,6 +967,7 @@ function vPedidos() {
             ${p.conta ? `<div class="conta">👤 ${esc(p.conta)}</div>` : ''}
             <div class="sub">${esc(p.precoTotal || p.preco || '')}${p.data ? ` · ${esc(p.data)}` : ''}</div>
             <div class="sub">${p.statusTipo === 'transito' && saiuParaEntrega(p) ? '🛵 Saiu para entrega' : esc(p.status || '')}${p.dataCancelamento ? ` · cancelável em ${esc(p.dataCancelamento)}` : ''}</div>
+            ${p.statusTipo === 'transito' && p.postadoEm ? `<div class="sub">📮 Postado ${esc(quandoTxt(new Date(p.postadoEm)))}</div>` : ''}
             ${p.statusTipo === 'entregue' && p.entregueEm ? `<div class="sub">✅ Entregue ${esc(quandoTxt(new Date(p.entregueEm)))}</div>` : ''}
             ${p.statusTipo === 'cancelamento' && !cancelEmAndamento(p) && p.canceladoEm ? `<div class="sub">❌ Cancelado ${esc(quandoTxt(new Date(p.canceladoEm)))}</div>` : ''}
             ${cancelEmAndamento(p) && previsaoReembolso(p) ? `<div class="reembolso${/já deveria/.test(previsaoReembolso(p)) ? ' atrasado' : ''}">${esc(previsaoReembolso(p))}</div>` : ''}
