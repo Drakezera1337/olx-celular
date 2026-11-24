@@ -802,6 +802,35 @@ const GRUPOS = [
   ['entregue', '✅ Entregues', (p) => p.statusTipo === 'entregue'],
 ];
 // Saiu para entrega: pelos Correios ou pela etapa atual do pedido na OLX
+// Modelo do videogame pelo título do pedido, para agrupar os cards
+function modeloVideogame(titulo) {
+  var t = String(titulo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  var ps = /(?:ps|playstation|play)\s*-?\s*([2-5])\b/.exec(t);
+  if (ps) {
+    var n = ps[1], base = "PlayStation " + n, o = { "5": 10, "4": 20, "3": 30, "2": 40 }[n];
+    if (/\bpro\b/.test(t)) return { nome: base + " Pro", ordem: o + 1 };
+    if (/\bsuper\s*slim\b/.test(t)) return { nome: base + " Super Slim", ordem: o + 3 };
+    if (/\bslim\b/.test(t)) return { nome: base + " Slim", ordem: o + 2 };
+    if (/\bfat\b/.test(t)) return { nome: base + " Fat", ordem: o + 4 };
+    return { nome: base, ordem: o };
+  }
+  if (/x\s*-?\s*box/.test(t)) {
+    if (/series\s*x|\bsx\b/.test(t)) return { nome: "Xbox Series X", ordem: 50 };
+    if (/series\s*s|\bss\b|series/.test(t)) return { nome: "Xbox Series S", ordem: 51 };
+    if (/\bone\b/.test(t)) return { nome: "Xbox One" + (/\bone\s*s\b/.test(t) ? " S" : /\bone\s*x\b/.test(t) ? " X" : ""), ordem: 52 };
+    if (/360/.test(t)) return { nome: "Xbox 360", ordem: 53 };
+    return { nome: "Xbox", ordem: 54 };
+  }
+  if (/nintendo|switch|nitendo|swich|switc/.test(t)) {
+    if (/switch\s*2\b/.test(t)) return { nome: "Nintendo Switch 2", ordem: 60 };
+    if (/oled/.test(t)) return { nome: "Nintendo Switch OLED", ordem: 61 };
+    if (/lite|light/.test(t)) return { nome: "Nintendo Switch Lite", ordem: 63 };
+    if (/switch|swich|switc/.test(t)) return { nome: "Nintendo Switch", ordem: 62 };
+    return { nome: "Nintendo", ordem: 64 };
+  }
+  return { nome: "Outros", ordem: 99 };
+}
+
 function saiuParaEntrega(p) {
   const rx = /saiu para (a )?entrega|to_be_delivered|out_for_delivery|em rota de entrega/i;
   return rx.test(p.rastreio?.status || '') || rx.test(p.etapaOlx || '') || rx.test(p.entregaStatusId || '') || rx.test(p.entregaStatusDesc || '');
@@ -954,11 +983,16 @@ function vPedidos() {
       // Em trânsito: na ordem em que foram postados (o postado primeiro no topo)
       if (['saiu', 'cidade', 'transito'].includes(tipo)) g.sort((a, b) => horaPostagem(a) - horaPostagem(b));
       if (!g.length) return '';
+      // Em trânsito e em preparação: agrupados por videogame (mantendo a ordem acima)
+      const porVg = ['saiu', 'cidade', 'transito', 'preparacao'].includes(tipo);
+      if (porVg) g.sort((a, b) => { const ma = modeloVideogame(a.titulo), mb = modeloVideogame(b.titulo); return ma.ordem - mb.ordem || ma.nome.localeCompare(mb.nome); });
       // Trânsito sem nenhum separado no topo: título de sempre
       if (tipo === 'transito' && !pedidos.some((p) => p.statusTipo === 'transito' && (saiuParaEntrega(p) || indoParaCidade(p)))) nome = '🚚 Em trânsito';
       const s = ['saiu', 'cidade', 'transito'].includes(tipo) ? g.reduce((t, p) => t + valorReais(p.precoTotal || p.preco), 0) : somas[tipo];
       return `<div class="secao secao-soma"><span>${nome} (${g.length})</span>${s ? `<span class="soma">${reais(s)}${tipo === 'cancelamento' ? ' a voltar' : ''}</span>` : ''}</div>${g.map((p, i) => (tipo === 'entregue' && (i === 0 || grupoDia(horaEntrega(g[i - 1])) !== grupoDia(horaEntrega(p)))
-        ? `<div class="secao">${grupoDia(horaEntrega(p))} (${g.filter((q) => grupoDia(horaEntrega(q)) === grupoDia(horaEntrega(p))).length})</div>` : '') + `
+        ? `<div class="secao">${grupoDia(horaEntrega(p))} (${g.filter((q) => grupoDia(horaEntrega(q)) === grupoDia(horaEntrega(p))).length})</div>` : '')
+        + (porVg && (i === 0 || modeloVideogame(g[i - 1].titulo).nome !== modeloVideogame(p.titulo).nome)
+        ? `<div class="secao-vg">🎮 ${esc(modeloVideogame(p.titulo).nome)} (${g.filter((q) => modeloVideogame(q.titulo).nome === modeloVideogame(p.titulo).nome).length})</div>` : '') + `
         <div class="card pad pedido">
           ${p.foto ? `<img referrerpolicy="no-referrer" src="${esc(p.foto)}" alt="">` : ''}
           ${p.statusTipo === 'cancelamento' ? `<button type="button" class="lixeira" data-ocultar-ped="${esc(chavePedido(p))}" aria-label="Remover da lista">🗑️</button>` : ''}
