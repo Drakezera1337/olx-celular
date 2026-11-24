@@ -802,32 +802,13 @@ const GRUPOS = [
   ['entregue', '✅ Entregues', (p) => p.statusTipo === 'entregue'],
 ];
 // Saiu para entrega: pelos Correios ou pela etapa atual do pedido na OLX
-// Modelo do videogame pelo título do pedido, para agrupar os cards
+// Marca do videogame pelo título do pedido, para agrupar os cards
 function modeloVideogame(titulo) {
   var t = String(titulo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  var ps = /(?:ps|playstation|play)\s*-?\s*([2-5])\b/.exec(t);
-  if (ps) {
-    var n = ps[1], base = "PlayStation " + n, o = { "5": 10, "4": 20, "3": 30, "2": 40 }[n];
-    if (/\bpro\b/.test(t)) return { nome: base + " Pro", ordem: o + 1 };
-    if (/\bsuper\s*slim\b/.test(t)) return { nome: base + " Super Slim", ordem: o + 3 };
-    if (/\bslim\b/.test(t)) return { nome: base + " Slim", ordem: o + 2 };
-    if (/\bfat\b/.test(t)) return { nome: base + " Fat", ordem: o + 4 };
-    return { nome: base, ordem: o };
-  }
-  if (/x\s*-?\s*box/.test(t)) {
-    if (/series\s*x|\bsx\b/.test(t)) return { nome: "Xbox Series X", ordem: 50 };
-    if (/series\s*s|\bss\b|series/.test(t)) return { nome: "Xbox Series S", ordem: 51 };
-    if (/\bone\b/.test(t)) return { nome: "Xbox One" + (/\bone\s*s\b/.test(t) ? " S" : /\bone\s*x\b/.test(t) ? " X" : ""), ordem: 52 };
-    if (/360/.test(t)) return { nome: "Xbox 360", ordem: 53 };
-    return { nome: "Xbox", ordem: 54 };
-  }
-  if (/nintendo|switch|nitendo|swich|switc/.test(t)) {
-    if (/switch\s*2\b/.test(t)) return { nome: "Nintendo Switch 2", ordem: 60 };
-    if (/oled/.test(t)) return { nome: "Nintendo Switch OLED", ordem: 61 };
-    if (/lite|light/.test(t)) return { nome: "Nintendo Switch Lite", ordem: 63 };
-    if (/switch|swich|switc/.test(t)) return { nome: "Nintendo Switch", ordem: 62 };
-    return { nome: "Nintendo", ordem: 64 };
-  }
+  if (/(?:ps|playstation|play)\s*-?\s*[1-5]\b|playstation|\bpsp\b|ps\s*vita/.test(t)) return { nome: "PlayStation", ordem: 1 };
+  if (/x\s*-?\s*box/.test(t)) return { nome: "Xbox", ordem: 2 };
+  if (/nintendo|nitendo|switch|swich|switc|\bwii\b|\b3ds\b|\b2ds\b|game\s*boy|gameboy|\bsnes\b/.test(t)) return { nome: "Nintendo", ordem: 3 };
+  if (/sega|mega\s*drive|dreamcast|master\s*system/.test(t)) return { nome: "Sega", ordem: 4 };
   return { nome: "Outros", ordem: 99 };
 }
 
