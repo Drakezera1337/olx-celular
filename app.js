@@ -747,6 +747,8 @@ function ocultarAuto(chave) {
 // ─── Avisos (histórico de notificações da dashboard do PC) ──────────────────
 const NOTIF_VISTO_KEY = 'olxcel:notifVisto';
 const NOTIF_CFG = {
+  'reserva-cancelada-envio': ['#ef4444', '📦', 'Reserva cancelada — não faz envio'],
+  'reserva-cancelada': ['#ef4444', '🗑', 'Reserva cancelada'],
   sucesso: ['#00e5a0', '🎉', 'Compra realizada'],
   erro: ['#ef4444', '❌', 'Erro'],
   reservado: ['#f59e0b', '🔒', 'Reservado'],
@@ -777,10 +779,16 @@ function vNotificacoes() {
   } else {
     tela.innerHTML = lista.map((n) => {
       const [cor, icone, nome] = NOTIF_CFG[n.tipo] || ['#94a3b8', '•', n.tipo || 'Aviso'];
-      return `<div class="card pad notif${(n.ts || 0) > visto ? ' nova' : ''}" style="border-left-color:${cor}">
+      // Miniatura do anúncio (quando a notificação tem foto) — tocar abre o anúncio
+      const mini = n.foto ? (n.link
+        ? `<a class="mini" href="${esc(n.link)}" target="_blank" rel="noopener"><img referrerpolicy="no-referrer" src="${esc(n.foto)}" alt=""></a>`
+        : `<span class="mini"><img referrerpolicy="no-referrer" src="${esc(n.foto)}" alt=""></span>`) : '';
+      return `<div class="card pad notif${(n.ts || 0) > visto ? ' nova' : ''}${mini ? ' com-mini' : ''}" style="border-left-color:${cor}">
+        ${mini}<div class="corpo">
         <div class="rotulo"><span style="color:${cor}">${icone} ${esc(nome.toUpperCase())}</span><span>${n.ts ? relativo(n.ts) : esc(`${n.data || ''} ${n.hora || ''}`)}</span></div>
         ${n.titulo ? `<div class="t">${esc(n.titulo)}</div>` : ''}
         ${n.msg ? `<div class="m">${esc(n.msg)}</div>` : ''}
+        </div>
       </div>`;
     }).join('');
   }

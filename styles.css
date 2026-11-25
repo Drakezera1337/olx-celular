@@ -183,6 +183,10 @@ b { font-weight: 700; }
 .notif .t { font-weight: 700; margin-top: 4px; overflow-wrap: anywhere; }
 .notif .m { color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
 .notif.nova { background: var(--surface2); }
+.notif.com-mini { display: flex; gap: 10px; align-items: flex-start; }
+.notif .corpo { flex: 1; min-width: 0; }
+.notif .mini { flex-shrink: 0; }
+.notif .mini img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; background: var(--surface2); }
 .decisao { display: flex; gap: 8px; }
 /* Reservas → "Reservado por outra pessoa": pergunta Sim/Não do forçar compra */
 .reservado-outro { border-color: rgba(245, 158, 11, .5); }
