@@ -959,7 +959,7 @@ function vPedidos() {
       ${somas.preparacao && somas.transito ? `<div class="sub">📦 ${reais(somas.preparacao)} em preparação · 🚚 ${reais(somas.transito)} chegando</div>` : ''}
       ${somas.cancelamento ? `<div><span class="sub">↩ A voltar (cancelamentos em andamento)</span> <b>${reais(somas.cancelamento)}</b></div>` : ''}
     </div>` : '';
-  tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · verificado ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
+  tela.innerHTML = `<div class="topo-pedidos"><span class="sub">${pedidos.length} pedido(s) · última mudança ${d.pedidosTs ? relativo(d.pedidosTs) : ''}</span>${btnMinhasCompras(pedidos)}</div>
     ${blocoVerificacao(d)}
     ${resumo}
     ${GRUPOS.map(([tipo, nome, filtro]) => {
